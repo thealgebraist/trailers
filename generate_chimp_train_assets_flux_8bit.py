@@ -122,7 +122,8 @@ def generate_images():
         transformer_weights_path = os.path.join(pruna_path, "transformer.pt")
         if os.path.exists(transformer_weights_path):
             print(f"Loading transformer weights from {transformer_weights_path}...")
-            state_dict = torch.load(transformer_weights_path, map_location="cpu", weights_only=True)
+            # If PrunaAI provided the full state dict
+            state_dict = torch.load(transformer_weights_path, map_location="cpu", weights_only=False)
             transformer.load_state_dict(state_dict)
         else:
             print(f"Warning: {transformer_weights_path} not found. Using base transformer.")
@@ -136,7 +137,7 @@ def generate_images():
         te2_weights_path = os.path.join(pruna_path, "text_encoder_2.pt")
         if os.path.exists(te2_weights_path):
             print(f"Loading text_encoder_2 weights from {te2_weights_path}...")
-            state_dict_te2 = torch.load(te2_weights_path, map_location="cpu", weights_only=True)
+            state_dict_te2 = torch.load(te2_weights_path, map_location="cpu", weights_only=False)
             text_encoder_2.load_state_dict(state_dict_te2)
         else:
             print(f"Warning: {te2_weights_path} not found. Using base text_encoder_2.")

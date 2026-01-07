@@ -158,10 +158,12 @@ def generate_images():
     try:
         from diffusers import StableDiffusionXLPipeline, UNet2DConditionModel, EulerDiscreteScheduler
         from huggingface_hub import hf_hub_download
+        from safetensors.torch import load_file
 
         # Load UNet
+        print(f"Loading UNet from {repo}...")
         unet = UNet2DConditionModel.from_config(base, subfolder="unet").to(DEVICE, torch.float16)
-        unet.load_state_dict(torch.load(hf_hub_download(repo, ckpt), map_location=DEVICE))
+        unet.load_state_dict(load_file(hf_hub_download(repo, ckpt), device=str(DEVICE)))
 
         # Load Pipeline
         pipe = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, torch_dtype=torch.float16, variant="fp16").to(DEVICE)
