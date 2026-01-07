@@ -92,11 +92,56 @@ def flush():
     if torch.cuda.is_available(): torch.cuda.empty_cache()
 
 def generate_images():
-    print("\n--- Generating Images (flux.1 schnell) ---")
-    model_id = "/workspace/.hf_home/hub/models--black-forest-labs--FLUX.1-schnell/snapshots/741f7c3ce8b383c54771c7003378a50191e9efe9"
+    print("\n--- Generating Images (flux.1 schnell 8-bit) ---")
+    base_model_id = "black-forest-labs/FLUX.1-schnell"
+    pruna_path = "/workspace/.hf_home/hub/models--PrunaAI--FLUX.1-schnell-8bit/snapshots/51f676f44a2720848b5451bab4459a538367bdff"
+    
     try:
-        pipe = FluxPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16)
+        from optimum.quanto import freeze, qfloat8, quantize
+        from diffusers import FluxPipeline
+        from transformers import T5EncoderModel
+        
+        print(f"Loading base components from {base_model_id}...")
+        pipe = FluxPipeline.from_pretrained(
+            base_model_id, 
+            transformer=None, 
+            text_encoder_2=None, 
+            torch_dtype=torch.bfloat16
+        )
+        
+        # 1. Load and Quantize Transformer
+        print("Loading and quantizing transformer...")
+        transformer = FluxTransformer2DModel.from_pretrained(base_model_id, subfolder="transformer", torch_dtype=torch.bfloat16)
+        quantize(transformer, weights=qfloat8)
+        freeze(transformer)
+        
+        transformer_weights_path = os.path.join(pruna_path, "transformer.pt")
+        if os.path.exists(transformer_weights_path):
+            print(f"Loading transformer weights from {transformer_weights_path}...")
+            state_dict = torch.load(transformer_weights_path, map_location="cpu", weights_only=True)
+            transformer.load_state_dict(state_dict)
+        else:
+            print(f"Warning: {transformer_weights_path} not found. Using base transformer.")
+            
+        # 2. Load and Quantize Text Encoder 2 (T5)
+        print("Loading and quantizing text_encoder_2...")
+        text_encoder_2 = T5EncoderModel.from_pretrained(base_model_id, subfolder="text_encoder_2", torch_dtype=torch.bfloat16)
+        quantize(text_encoder_2, weights=qfloat8)
+        freeze(text_encoder_2)
+        
+        te2_weights_path = os.path.join(pruna_path, "text_encoder_2.pt")
+        if os.path.exists(te2_weights_path):
+            print(f"Loading text_encoder_2 weights from {te2_weights_path}...")
+            state_dict_te2 = torch.load(te2_weights_path, map_location="cpu", weights_only=True)
+            text_encoder_2.load_state_dict(state_dict_te2)
+        else:
+            print(f"Warning: {te2_weights_path} not found. Using base text_encoder_2.")
+
+        # 3. Assemble Pipeline
+        pipe.transformer = transformer
+        pipe.text_encoder_2 = text_encoder_2
         pipe.to(DEVICE)
+        
         for scene in SCENES:
             filename = f"{OUTPUT_DIR}/images/{scene['id']}.png"
             txt_filename = f"{OUTPUT_DIR}/images/{scene['id']}.txt"
@@ -104,7 +149,6 @@ def generate_images():
                 continue
             print(f"Generating image: {scene['id']}")
             full_prompt = scene['image_prompt']
-            # Flux Schnell is optimized for 4 steps and no guidance scale
             pipe(
                 prompt=full_prompt, 
                 height=1024, 
@@ -113,10 +157,12 @@ def generate_images():
                 generator=torch.Generator(device=DEVICE).manual_seed(101)
             ).images[0].save(filename)
             with open(txt_filename, "w") as f:
-                f.write(f"Model: {model_id}\nImage Prompt: {full_prompt}\nSteps: 4\nRes: 1024x1024\nSeed: 101\n")
+                f.write(f"Model: PrunaAI 8-bit (path: {pruna_path})\nPrompt: {full_prompt}\n")
         del pipe; flush()
     except Exception as e:
         print(f"Image generation failed: {e}")
+        import traceback
+        traceback.print_exc()
 
 def main():
     import sys
@@ -137,22 +183,8 @@ def generate_voice_fishspeech():
     
     try:
         from fish_audio_sdk import Session, TTS
-        # You might need to configure the session with an API key if not in env vars
-        # session = Session("YOUR_API_KEY") 
-        # For now, we assume the environment is configured or we use a local model if supported by the SDK wrapper.
-        # If this is a wrapper for a local model, we might need different initialization.
-        
-        # NOTE: Since the user asked for V1.5, checking documentation (simulated) suggests:
-        # If this is for the API, we need an API key. 
-        # If this is for local inference, we usually use the CLI.
-        # The user command `pip install fish-audio-sdk` implies API usage.
-        
-        # Let's assume standard SDK usage for now.
         session = Session() 
-        tts = TTS(session)
-        
-        # Common reference audio for the voice cloning (if needed)
-        # ref_audio = open("voices/reference.wav", "rb") 
+        tts = TTS(session) 
         
         for i, scene in enumerate(SCENES):
             txt = scene['voice_prompt']
@@ -164,14 +196,7 @@ def generate_voice_fishspeech():
                 continue
                 
             print(f"Generating voice {i+1}/32: {txt[:60]}...")
-            
-            # SDK usage is hypothetical here as I don't have the docs in front of me, 
-            # but I will use a generic pattern.
-            # Please ensure you have FISH_AUDIO_API_KEY set if using the cloud API.
-            
-            # tts.tts(text=txt, ... )
-            # If the SDK generates bytes:
-            audio_bytes = tts.tts(text=txt, reference_id="default") # using a default or pre-uploaded voice
+            audio_bytes = tts.tts(text=txt, reference_id="default")
             
             with open(out_file, "wb") as f:
                 f.write(audio_bytes)
@@ -184,88 +209,6 @@ def generate_voice_fishspeech():
         print("Error: 'fish-audio-sdk' not found. Please install it with: pip install fish-audio-sdk")
     except Exception as e:
         print(f"Fish Speech generation failed: {e}")
-
-
-
-def generate_voice_bark():
-    """Generate 32 separate Bark TTS WAV files, one per SCENES entry using the voice_prompt field.
-    Requires the `bark` package (suno/bark) or an equivalent API that provides
-    generate_audio(text) and SAMPLE_RATE. Falls back with a helpful message if unavailable.
-    """
-    print("--- Generating 32 Bark voice lines ---")
-    os.makedirs(f"{OUTPUT_DIR}/voice", exist_ok=True)
-    
-    # Workaround for torch 2.6+ weights_only loading restrictions.
-    # We must register numpy globals before bark loads its models.
-    try:
-        import importlib
-        import warnings
-        import torch
-        np = importlib.import_module('numpy')
-        
-        # 1. Collect all potential scalar/dtype types to allowlist
-        safe_types = []
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            # Try both modern and legacy paths
-            for prefix in ['_core', 'core']:
-                if hasattr(np, prefix):
-                    mod = getattr(np, prefix)
-                    if hasattr(mod, 'multiarray') and hasattr(mod.multiarray, 'scalar'):
-                        safe_types.append(mod.multiarray.scalar)
-            
-            # Also add common types that often cause issues in Bark/Transformers
-            for t in ['dtype', 'ndarray', 'float32', 'float64', 'int64']:
-                if hasattr(np, t):
-                    safe_types.append(getattr(np, t))
-
-        # 2. Register with torch if available
-        if hasattr(torch, 'serialization') and hasattr(torch.serialization, 'add_safe_globals'):
-            # Filter duplicates and None
-            unique_safe = list(set([t for t in safe_types if t is not None]))
-            torch.serialization.add_safe_globals(unique_safe)
-            
-    except Exception as e:
-        print(f"Debug: Failed to patch torch safe globals: {e}")
-
-    try:
-        # suno/bark provides generate_audio and SAMPLE_RATE
-        from bark import generate_audio, SAMPLE_RATE
-        import numpy as np
-        for i, scene in enumerate(SCENES):
-            txt = scene['voice_prompt']
-            out_file = f"{OUTPUT_DIR}/voice/voice_{i+1:02d}.wav"
-            meta_file = f"{OUTPUT_DIR}/voice/voice_{i+1:02d}.txt"
-            if os.path.exists(out_file):
-                print(f"Skipping existing {out_file}")
-                continue
-            print(f"Generating voice {i+1}/32: {txt[:60]}...")
-            # generate_audio returns a numpy array of floats in [-1, 1]
-            audio = generate_audio(txt)
-            arr = np.asarray(audio, dtype=np.float32)
-            # convert to 16-bit PCM
-            pcm = (arr * 32767.0).astype(np.int16)
-            scipy.io.wavfile.write(out_file, SAMPLE_RATE, pcm)
-            with open(meta_file, 'w') as mf:
-                mf.write(f"Prompt: {txt}\nModel: bark\nSampleRate: {SAMPLE_RATE}\n")
-            print(f"Wrote {out_file} and metadata {meta_file}")
-    except Exception as e:
-        print(f"Bark generation not available or failed: {e}\nInstall the 'bark' package or run exports in the container/VM with dependencies.")
-
-
-def generate_sfx():
-    """Save SFX prompt descriptions per scene to assets (can be used later to synthesize SFX)."""
-    print("--- Writing SFX prompt descriptions ---")
-    os.makedirs(f"{OUTPUT_DIR}/sfx", exist_ok=True)
-    for i, scene in enumerate(SCENES):
-        sfx_file = f"{OUTPUT_DIR}/sfx/{scene['id']}.txt"
-        if os.path.exists(sfx_file):
-            print(f"Skipping existing {sfx_file}")
-            continue
-        with open(sfx_file, 'w') as f:
-            f.write(scene['sfx_prompt'])
-        print(f"Wrote SFX prompt {sfx_file}")
-
 
 if __name__ == "__main__":
     main()
