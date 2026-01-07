@@ -93,10 +93,26 @@ def flush():
 
 def generate_images():
     print("\n--- Generating Images (flux.1 schnell) ---")
-    model_id = "/workspace/.hf_home/hub/models--PrunaAI--FLUX.1-schnell-8bit/snapshots/51f676f44a2720848b5451bab4459a538367bdff"
+    # Base model for structure (scheduler, vae, tokenizer, etc.)
+    base_model_id = "black-forest-labs/FLUX.1-schnell"
+    # Local optimized transformer path
+    transformer_path = "/workspace/.hf_home/hub/models--PrunaAI--FLUX.1-schnell-8bit/snapshots/51f676f44a2720848b5451bab4459a538367bdff"
+    
     try:
-        pipe = FluxPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16)
+        from diffusers import FluxTransformer2DModel
+        print(f"Loading base pipeline from {base_model_id}...")
+        pipe = FluxPipeline.from_pretrained(base_model_id, torch_dtype=torch.bfloat16)
+        
+        print(f"Loading optimized transformer from {transformer_path}...")
+        transformer = FluxTransformer2DModel.from_pretrained(
+            transformer_path, 
+            torch_dtype=torch.bfloat16,
+            use_safetensors=True
+        )
+        pipe.transformer = transformer
+        
         pipe.to(DEVICE)
+        
         for scene in SCENES:
             filename = f"{OUTPUT_DIR}/images/{scene['id']}.png"
             txt_filename = f"{OUTPUT_DIR}/images/{scene['id']}.txt"
@@ -113,7 +129,7 @@ def generate_images():
                 generator=torch.Generator(device=DEVICE).manual_seed(101)
             ).images[0].save(filename)
             with open(txt_filename, "w") as f:
-                f.write(f"Model: {model_id}\nImage Prompt: {full_prompt}\nSteps: 4\nRes: 1024x1024\nSeed: 101\n")
+                f.write(f"Model: {transformer_path} (base: {base_model_id})\nImage Prompt: {full_prompt}\nSteps: 4\nRes: 1024x1024\nSeed: 101\n")
         del pipe; flush()
     except Exception as e:
         print(f"Image generation failed: {e}")
