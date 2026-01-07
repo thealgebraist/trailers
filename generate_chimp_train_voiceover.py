@@ -2,8 +2,10 @@ import torch
 import scipy.io.wavfile
 import os
 import gc
-import numpy as np
 import subprocess
+import re
+import requests
+import numpy as np
 
 # --- Configuration ---
 OUTPUT_DIR = "assets_chimp_train"
@@ -51,6 +53,7 @@ SEGMENT_DURATION = TOTAL_DURATION / len(VO_SCRIPTS)
 def apply_audio_enhancement(file_path):
     """Applies high-quality voice processing using ffmpeg."""
     temp_path = file_path.replace(".wav", "_enhanced.wav")
+    # Compression, normalization and slight warmth
     filter_complex = "bass=g=3,acompressor=threshold=-12dB:ratio=3:makeup=4dB,loudnorm"
     cmd = ["ffmpeg", "-y", "-i", file_path, "-af", filter_complex, temp_path]
     try:
@@ -60,28 +63,37 @@ def apply_audio_enhancement(file_path):
         print(f"Enhancement failed for {file_path}: {e}")
 
 def generate_voiceover():
-    print(f"--- Generating 120s High Quality Voiceover (Fish Speech V1.5 SDK) ---")
+    print(f"--- Generating 120s High Quality Voiceover (Vibe Voice) ---")
+    
+    temp_txt = "vibevoice_temp.txt"
+    full_audio_segments = []
+    sample_rate = 44100 # Target SR, will be determined by first segment
     
     try:
-        from fish_audio_sdk import Session, TTSRequest
-        # Assumes FISH_AUDIO_API_KEY is in environment
-        session = Session() 
-        
-        full_audio_segments = []
-        
         for i, txt in enumerate(VO_SCRIPTS):
             idx = i + 1
             out_file = f"{OUTPUT_DIR}/voice/voice_{idx:02d}.wav"
             print(f"Generating segment {idx}/32: {txt[:50]}...")
             
-            # Use the correct SDK pattern for 1.5
-            # backend "speech-1.5" is the default in the SDK's apis.py
-            with open(out_file, "wb") as f:
-                for chunk in session.tts(TTSRequest(text=txt, format="wav")):
-                    f.write(chunk)
+            with open(temp_txt, "w") as f:
+                f.write(txt)
             
-            # Load back to process duration
-            sr, data = scipy.io.wavfile.read(out_file)
+            cmd = [
+                "python3", "-m", "demo.realtime_model_inference_from_file",
+                "--model_path", "VibeVoiceModel",
+                "--txt_path", temp_txt,
+                "--speaker_name", "Carter"
+            ]
+            
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            generated_wav = "output_from_file/Carter.wav"
+            if not os.path.exists(generated_wav):
+                print(f"Error: VibeVoice failed to produce {generated_wav}")
+                continue
+                
+            # Load and process duration
+            sr, data = scipy.io.wavfile.read(generated_wav)
             sample_rate = sr
             
             if data.dtype == np.int16:
@@ -106,10 +118,11 @@ def generate_voiceover():
         
         print(f"Success! Master file: {master_path}")
 
-    except ImportError as e:
-        print(f"Error: Fish Speech SDK import failed: {e}")
     except Exception as e:
         print(f"Voiceover generation failed: {e}")
+    finally:
+        if os.path.exists(temp_txt):
+            os.remove(temp_txt)
 
 if __name__ == "__main__":
     generate_voiceover()

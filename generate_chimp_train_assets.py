@@ -119,36 +119,56 @@ def apply_trailer_voice_effect(file_path):
     except Exception as e: 
         print(f"Failed effect: {e}")
 
-def generate_voice_fishspeech():
-    """Generate 32 separate voice lines using Fish Speech V1.5 via SDK."""
-    print("--- Generating 32 Fish Speech voice lines ---")
+def generate_voice_vibevoice():
+    """Generate 32 separate voice lines using Vibe Voice.
+    Requires VibeVoice environment and demo module.
+    """
+    print("--- Generating 32 Vibe Voice lines ---")
+    os.makedirs(f"{OUTPUT_DIR}/voice", exist_ok=True)
     
-    try:
-        from fish_audio_sdk import Session, TTSRequest
-        session = Session() 
+    # We use a temporary text file for each generation as required by VibeVoice CLI
+    temp_txt = "vibevoice_temp.txt"
+    
+    for i, scene in enumerate(SCENES):
+        txt = scene['voice_prompt']
+        out_file = f"{OUTPUT_DIR}/voice/voice_{i+1:02d}.wav"
         
-        for i, scene in enumerate(SCENES):
-            txt = scene['voice_prompt']
-            out_file = f"{OUTPUT_DIR}/voice/voice_{i+1:02d}.wav"
+        if os.path.exists(out_file):
+            continue
             
-            if os.path.exists(out_file):
-                continue
+        print(f"Generating voice {i+1}/32: {txt[:60]}...")
+        
+        try:
+            with open(temp_txt, "w") as f:
+                f.write(txt)
+            
+            # Pattern from test_tts_benchmark.py
+            cmd = [
+                "python3", "-m", "demo.realtime_model_inference_from_file",
+                "--model_path", "VibeVoiceModel", # Using local path if it has weights, else "microsoft/VibeVoice-Realtime-0.5B"
+                "--txt_path", temp_txt,
+                "--speaker_name", "Carter" # Default speaker from benchmark
+            ]
+            
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            # VibeVoice outputs to output_from_file/{speaker_name}.wav
+            generated_wav = "output_from_file/Carter.wav"
+            if os.path.exists(generated_wav):
+                os.replace(generated_wav, out_file)
+                apply_trailer_voice_effect(out_file)
+            else:
+                print(f"Warning: VibeVoice did not produce {generated_wav}")
                 
-            print(f"Generating voice {i+1}/32: {txt[:60]}...")
+        except Exception as e:
+            print(f"VibeVoice generation failed for scene {i+1}: {e}")
+            break
             
-            with open(out_file, "wb") as f:
-                for chunk in session.tts(TTSRequest(text=txt, format="wav")):
-                    f.write(chunk)
-            
-            apply_trailer_voice_effect(out_file)
-            
-    except ImportError:
-        print("Error: 'fish-audio-sdk' not found.")
-    except Exception as e:
-        print(f"Fish Speech generation failed: {e}")
+    if os.path.exists(temp_txt):
+        os.remove(temp_txt)
 
 def generate_voice():
-    generate_voice_fishspeech()
+    generate_voice_vibevoice()
 
 def generate_images():
     print("--- Generating Images (SDXL Lightning, 8 steps) ---")
