@@ -91,7 +91,7 @@ def generate_voiceover():
 
     try:
         processor = AutoProcessor.from_pretrained("suno/bark")
-        model = BarkModel.from_pretrained("suno/bark", torch_dtype=torch.float32).to(DEVICE)
+        model = BarkModel.from_pretrained("suno/bark", dtype=torch.float32).to(DEVICE)
         sample_rate = model.generation_config.sample_rate
         voice_preset = "v2/en_speaker_6"
         
@@ -104,7 +104,7 @@ def generate_voiceover():
             
             inputs = processor(txt, voice_preset=voice_preset, return_tensors="pt").to(DEVICE)
             with torch.no_grad():
-                audio_array = model.generate(**inputs, min_eos_p=0.05).cpu().numpy().squeeze()
+                audio_array = model.generate(**inputs, attention_mask=inputs.get("attention_mask"), min_eos_p=0.05).cpu().numpy().squeeze()
             
             # Ensure precise timing (3.75s)
             target_samples = int(SEGMENT_DURATION * sample_rate)
