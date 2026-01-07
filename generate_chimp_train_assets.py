@@ -154,13 +154,17 @@ def generate_voice_bark():
         try:
             import importlib
             np = importlib.import_module('numpy')
-            if hasattr(torch, 'serialization') and hasattr(torch.serialization, 'add_safe_globals'):
-                try:
-                    torch.serialization.add_safe_globals([np.core.multiarray.scalar])
-                except Exception:
-                    pass
-        except Exception:
-            pass
+            # Handle both old and new numpy core locations for the multiarray scalar
+            scalar_type = None
+            if hasattr(np, 'core') and hasattr(np.core, 'multiarray') and hasattr(np.core.multiarray, 'scalar'):
+                scalar_type = np.core.multiarray.scalar
+            elif hasattr(np, '_core') and hasattr(np._core, 'multiarray') and hasattr(np._core.multiarray, 'scalar'):
+                scalar_type = np._core.multiarray.scalar
+            
+            if scalar_type and hasattr(torch, 'serialization') and hasattr(torch.serialization, 'add_safe_globals'):
+                torch.serialization.add_safe_globals([scalar_type])
+        except Exception as e:
+            print(f"Warning: Could not add numpy scalar to safe globals: {e}")
         # suno/bark provides generate_audio and SAMPLE_RATE
         from bark import generate_audio, SAMPLE_RATE
         import numpy as np
