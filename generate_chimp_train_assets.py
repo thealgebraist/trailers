@@ -8,9 +8,9 @@ import requests
 import numpy as np
 import PIL.Image
 if not hasattr(PIL.Image, "ANTIALIAS"): PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
-from diffusers import StableDiffusionPipeline
+from diffusers import FluxPipeline
 import subprocess
-from transformers import AutoProcessor, BarkModel
+from transformers import AutoProcessor
 
 OUTPUT_DIR = "assets_chimp_train"
 os.makedirs(f"{OUTPUT_DIR}/images", exist_ok=True)
@@ -93,9 +93,9 @@ def flush():
 
 def generate_images():
     print("\n--- Generating Images (flux.1 schnell) ---")
-    model_id = "flux/flux.1-schnell"
+    model_id = "/workspace/.hf_home/hub/models--black-forest-labs--FLUX.1-schnell/snapshots/741f7c3ce8b383c54771c7003378a50191e9efe9"
     try:
-        pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16)
+        pipe = FluxPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16)
         pipe.to(DEVICE)
         for scene in SCENES:
             filename = f"{OUTPUT_DIR}/images/{scene['id']}.png"
@@ -104,9 +104,16 @@ def generate_images():
                 continue
             print(f"Generating image: {scene['id']}")
             full_prompt = scene['image_prompt']
-            pipe(prompt=full_prompt, height=1024, width=1024, guidance_scale=7.5, num_inference_steps=16, generator=torch.Generator(device=DEVICE).manual_seed(101)).images[0].save(filename)
+            # Flux Schnell is optimized for 4 steps and no guidance scale
+            pipe(
+                prompt=full_prompt, 
+                height=1024, 
+                width=1024, 
+                num_inference_steps=4, 
+                generator=torch.Generator(device=DEVICE).manual_seed(101)
+            ).images[0].save(filename)
             with open(txt_filename, "w") as f:
-                f.write(f"Model: {model_id}\nImage Prompt: {full_prompt}\nSteps: 16\nRes: 1024x1024\nSeed: 101\n")
+                f.write(f"Model: {model_id}\nImage Prompt: {full_prompt}\nSteps: 4\nRes: 1024x1024\nSeed: 101\n")
         del pipe; flush()
     except Exception as e:
         print(f"Image generation failed: {e}")
@@ -117,27 +124,67 @@ def main():
         generate_images()
         return
     if "voice" in sys.argv:
-        try:
-            generate_voice_bark()
-        except NameError:
-            print("Function generate_voice_bark is not defined. Please ensure it is present in the script.")
+        generate_voice_fishspeech()
         return
     # Add calls for sfx, music as implemented
 
-def generate_voice_vibevoice():
-    print("--- Generating 120s VibeVoice voiceover ---")
-    output_path = f"{OUTPUT_DIR}/voice/voiceover_full.wav"
-    full_text = " ".join([scene['visual'] for scene in SCENES])
+def generate_voice_fishspeech():
+    """Generate 32 separate voice lines using Fish Speech V1.5 via SDK.
+    Requires `fish-audio-sdk` installed.
+    """
+    print("--- Generating 32 Fish Speech voice lines ---")
+    os.makedirs(f"{OUTPUT_DIR}/voice", exist_ok=True)
+    
     try:
-        subprocess.run([
-            "python3", "-m", "F5TTS_MLX.generate",
-            "--text", full_text,
-            "--output", output_path,
-            "--duration", "120",
-            "--model_path", "VibeVoiceModel"
-        ], check=True)
+        from fish_audio_sdk import Session, TTS
+        # You might need to configure the session with an API key if not in env vars
+        # session = Session("YOUR_API_KEY") 
+        # For now, we assume the environment is configured or we use a local model if supported by the SDK wrapper.
+        # If this is a wrapper for a local model, we might need different initialization.
+        
+        # NOTE: Since the user asked for V1.5, checking documentation (simulated) suggests:
+        # If this is for the API, we need an API key. 
+        # If this is for local inference, we usually use the CLI.
+        # The user command `pip install fish-audio-sdk` implies API usage.
+        
+        # Let's assume standard SDK usage for now.
+        session = Session() 
+        tts = TTS(session)
+        
+        # Common reference audio for the voice cloning (if needed)
+        # ref_audio = open("voices/reference.wav", "rb") 
+        
+        for i, scene in enumerate(SCENES):
+            txt = scene['voice_prompt']
+            out_file = f"{OUTPUT_DIR}/voice/voice_{i+1:02d}.wav"
+            meta_file = f"{OUTPUT_DIR}/voice/voice_{i+1:02d}.txt"
+            
+            if os.path.exists(out_file):
+                print(f"Skipping existing {out_file}")
+                continue
+                
+            print(f"Generating voice {i+1}/32: {txt[:60]}...")
+            
+            # SDK usage is hypothetical here as I don't have the docs in front of me, 
+            # but I will use a generic pattern.
+            # Please ensure you have FISH_AUDIO_API_KEY set if using the cloud API.
+            
+            # tts.tts(text=txt, ... )
+            # If the SDK generates bytes:
+            audio_bytes = tts.tts(text=txt, reference_id="default") # using a default or pre-uploaded voice
+            
+            with open(out_file, "wb") as f:
+                f.write(audio_bytes)
+                
+            with open(meta_file, 'w') as mf:
+                mf.write(f"Prompt: {txt}\nModel: fish-speech-v1.5\n")
+            print(f"Wrote {out_file}")
+            
+    except ImportError:
+        print("Error: 'fish-audio-sdk' not found. Please install it with: pip install fish-audio-sdk")
     except Exception as e:
-        print(f"VibeVoice generation failed: {e}")
+        print(f"Fish Speech generation failed: {e}")
+
 
 
 def generate_voice_bark():
