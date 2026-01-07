@@ -101,6 +101,10 @@ def generate_images():
         from diffusers import FluxPipeline, FluxTransformer2DModel
         from transformers import T5EncoderModel
         
+        # Register classes for safe unpickling in PyTorch 2.6+
+        if hasattr(torch.serialization, 'add_safe_globals'):
+            torch.serialization.add_safe_globals([FluxTransformer2DModel, T5EncoderModel])
+        
         print(f"Loading base components from {base_model_id}...")
         pipe = FluxPipeline.from_pretrained(
             base_model_id, 
