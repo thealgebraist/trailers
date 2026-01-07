@@ -147,38 +147,41 @@ def generate_voice_bark():
     """
     print("--- Generating 32 Bark voice lines ---")
     os.makedirs(f"{OUTPUT_DIR}/voice", exist_ok=True)
+    
+    # Workaround for torch 2.6+ weights_only loading restrictions.
+    # We must register numpy globals before bark loads its models.
     try:
-        # Workaround for torch 2.6+ weights_only loading restrictions when Bark checkpoints
-        # include numpy scalar globals. Allowlist the numpy scalar for torch.serialization
-        # so torch.load used by Bark can succeed (only do this if model files are trusted).
-        try:
-            import importlib
-            import warnings
-            np = importlib.import_module('numpy')
+        import importlib
+        import warnings
+        import torch
+        np = importlib.import_module('numpy')
+        
+        # 1. Collect all potential scalar/dtype types to allowlist
+        safe_types = []
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # Try both modern and legacy paths
+            for prefix in ['_core', 'core']:
+                if hasattr(np, prefix):
+                    mod = getattr(np, prefix)
+                    if hasattr(mod, 'multiarray') and hasattr(mod.multiarray, 'scalar'):
+                        safe_types.append(mod.multiarray.scalar)
             
-            scalar_type = None
-            
-            # 1. Try modern numpy._core first (Numpy 2.0+)
-            # We wrap in catch_warnings just in case, though _core shouldn't warn.
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                if hasattr(np, '_core') and hasattr(np._core, 'multiarray') and hasattr(np._core.multiarray, 'scalar'):
-                    scalar_type = np._core.multiarray.scalar
-            
-            # 2. Fallback to legacy numpy.core if not found (Numpy < 2.0)
-            if scalar_type is None:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    if hasattr(np, 'core') and hasattr(np.core, 'multiarray') and hasattr(np.core.multiarray, 'scalar'):
-                        scalar_type = np.core.multiarray.scalar
+            # Also add common types that often cause issues in Bark/Transformers
+            for t in ['dtype', 'ndarray', 'float32', 'float64', 'int64']:
+                if hasattr(np, t):
+                    safe_types.append(getattr(np, t))
 
-            # 3. Register with torch
-            if scalar_type is not None and hasattr(torch, 'serialization') and hasattr(torch.serialization, 'add_safe_globals'):
-                torch.serialization.add_safe_globals([scalar_type])
-                
-        except Exception as e:
-            # Silence errors during this patch attempt to allow script to proceed
-            print(f"Debug: Failed to patch torch safe globals: {e}")
+        # 2. Register with torch if available
+        if hasattr(torch, 'serialization') and hasattr(torch.serialization, 'add_safe_globals'):
+            # Filter duplicates and None
+            unique_safe = list(set([t for t in safe_types if t is not None]))
+            torch.serialization.add_safe_globals(unique_safe)
+            
+    except Exception as e:
+        print(f"Debug: Failed to patch torch safe globals: {e}")
+
+    try:
         # suno/bark provides generate_audio and SAMPLE_RATE
         from bark import generate_audio, SAMPLE_RATE
         import numpy as np
