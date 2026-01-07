@@ -8,7 +8,7 @@ import requests
 import numpy as np
 import PIL.Image
 if not hasattr(PIL.Image, "ANTIALIAS"): PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
-from diffusers import FluxPipeline, StableAudioPipeline
+from diffusers import StableAudioPipeline
 from transformers import AutoProcessor
 
 # --- Configuration ---
@@ -150,18 +150,28 @@ def generate_voice():
     generate_voice_fishspeech()
 
 def generate_images():
-    print("--- Generating Images (Flux.1 Schnell, 4 steps) ---")
-    # Standard Flux loading from the previously specified path
-    model_id = "/workspace/.hf_home/hub/models--black-forest-labs--FLUX.1-schnell/snapshots/741f7c3ce8b383c54771c7003378a50191e9efe9"
-    
+    print("--- Generating Images (SDXL Lightning, 4 steps) ---")
+    base = "stabilityai/stable-diffusion-xl-base-1.0"
+    repo = "ByteDance/SDXL-Lightning"
+    ckpt = "sdxl_lightning_4step_unet.safetensors"
+
     try:
-        pipe = FluxPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16)
+        from diffusers import StableDiffusionXLPipeline, UNet2DConditionModel, EulerDiscreteScheduler
+        from huggingface_hub import hf_hub_download
+
+        # Load UNet
+        unet = UNet2DConditionModel.from_config(base, subfolder="unet").to(DEVICE, torch.float16)
+        unet.load_state_dict(torch.load(hf_hub_download(repo, ckpt), map_location=DEVICE))
+
+        # Load Pipeline
+        pipe = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, torch_dtype=torch.float16, variant="fp16").to(DEVICE)
+        
+        # Ensure scheduler uses trailing timesteps
+        pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
+
         if DEVICE == "cuda": 
             pipe.enable_model_cpu_offload() 
-            pipe.enable_vae_tiling()
-        else: 
-            pipe.to(DEVICE)
-            
+        
         for scene in SCENES:
             fname = f"{OUTPUT_DIR}/images/{scene['id']}.png"
             if os.path.exists(fname): continue
@@ -169,12 +179,11 @@ def generate_images():
             print(f"Generating image: {scene['id']}")
             prompt = scene['visual']
             
-            # Schnell optimized settings
+            # SDXL Lightning specific settings: 4 steps, 0 guidance
             pipe(
                 prompt=prompt, 
                 guidance_scale=0.0, 
                 num_inference_steps=4, 
-                max_sequence_length=256, 
                 generator=torch.Generator(device="cpu").manual_seed(101)
             ).images[0].save(fname)
             
