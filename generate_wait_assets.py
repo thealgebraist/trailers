@@ -86,7 +86,7 @@ def apply_trailer_voice_effect(file_path):
     except Exception as e: print(f"Failed effect: {e}")
 
 def generate_voice_bark(output_path, text):
-    print("---" Falling back to Bark ---")
+    print("--- Falling back to Bark ---")
     try:
         processor = AutoProcessor.from_pretrained("suno/bark")
         model = BarkModel.from_pretrained("suno/bark", torch_dtype=torch.float32).to(DEVICE)
@@ -111,7 +111,7 @@ def generate_voice_bark(output_path, text):
     except Exception as e: print(f"Bark failed: {e}")
 
 def generate_voice_f5tts(output_path):
-    print("---" Generating 120s F5-TTS (Local on Server) ---")
+    print("--- Generating 120s F5-TTS (Local on Server) ---")
     full_text = " ".join(VO_SCRIPTS)
     try:
         os.makedirs("f5_output_wait", exist_ok=True)

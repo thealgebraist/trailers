@@ -79,7 +79,7 @@ def apply_trailer_voice_effect(file_path):
     except Exception as e: print(f"Failed effect: {e}")
 
 def generate_voice_bark(output_path, text):
-    print("---"Falling back to Bark---")
+    print("--- Falling back to Bark ---")
     try:
         processor = AutoProcessor.from_pretrained("suno/bark")
         model = BarkModel.from_pretrained("suno/bark", torch_dtype=torch.float32).to(DEVICE)
@@ -104,7 +104,7 @@ def generate_voice_bark(output_path, text):
     except Exception as e: print(f"Bark failed: {e}")
 
 def generate_voice_f5tts(output_path):
-    print("---"Generating 120s F5-TTS (Local on Server)---")
+    print("--- Generating 120s F5-TTS (Local on Server) ---")
     full_text = " ".join(VO_SCRIPTS)
     try:
         os.makedirs("f5_output_snakes", exist_ok=True)
@@ -127,7 +127,7 @@ def generate_voice():
     if not success: generate_voice_bark(output_path, " ".join(VO_SCRIPTS))
 
 def generate_images():
-    print("---"Generating Images (8 steps)---")
+    print("--- Generating Images (8 steps) ---")
     model_id = "black-forest-labs/FLUX.1-schnell"
     pipe = FluxPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16)
     if DEVICE == "cuda": pipe.enable_model_cpu_offload(); pipe.enable_vae_tiling()
@@ -141,7 +141,7 @@ def generate_images():
     del pipe; flush()
 
 def generate_audio():
-    print("\n---"Generating Music & SFX (100 steps)---")
+    print("\n--- Generating Music & SFX (100 steps) ---")
     try:
         pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float32)
         if DEVICE == "cuda": pipe.enable_model_cpu_offload()
