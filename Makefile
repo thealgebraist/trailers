@@ -124,6 +124,11 @@ LIBTORCH_DIR ?=
 
 .PHONY: build-onnx build-cpp generate-assets-cpp
 
+# Export tokenizers only (lightweight)
+export-tokenizers:
+	$(PY_EXEC) export_tokenizer_torchscript.py
+	$(PY_EXEC) export_tokenizer_onnx.py
+
 # Attempt to build and install onnx into the venv (best-effort)
 build-onnx:
 	bash build_onnx.sh
