@@ -153,18 +153,32 @@ def generate_voice_bark():
         # so torch.load used by Bark can succeed (only do this if model files are trusted).
         try:
             import importlib
+            import warnings
             np = importlib.import_module('numpy')
-            # Handle both old and new numpy core locations for the multiarray scalar
-            scalar_type = None
-            if hasattr(np, 'core') and hasattr(np.core, 'multiarray') and hasattr(np.core.multiarray, 'scalar'):
-                scalar_type = np.core.multiarray.scalar
-            elif hasattr(np, '_core') and hasattr(np._core, 'multiarray') and hasattr(np._core.multiarray, 'scalar'):
-                scalar_type = np._core.multiarray.scalar
             
-            if scalar_type and hasattr(torch, 'serialization') and hasattr(torch.serialization, 'add_safe_globals'):
+            scalar_type = None
+            
+            # 1. Try modern numpy._core first (Numpy 2.0+)
+            # We wrap in catch_warnings just in case, though _core shouldn't warn.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                if hasattr(np, '_core') and hasattr(np._core, 'multiarray') and hasattr(np._core.multiarray, 'scalar'):
+                    scalar_type = np._core.multiarray.scalar
+            
+            # 2. Fallback to legacy numpy.core if not found (Numpy < 2.0)
+            if scalar_type is None:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    if hasattr(np, 'core') and hasattr(np.core, 'multiarray') and hasattr(np.core.multiarray, 'scalar'):
+                        scalar_type = np.core.multiarray.scalar
+
+            # 3. Register with torch
+            if scalar_type is not None and hasattr(torch, 'serialization') and hasattr(torch.serialization, 'add_safe_globals'):
                 torch.serialization.add_safe_globals([scalar_type])
+                
         except Exception as e:
-            print(f"Warning: Could not add numpy scalar to safe globals: {e}")
+            # Silence errors during this patch attempt to allow script to proceed
+            print(f"Debug: Failed to patch torch safe globals: {e}")
         # suno/bark provides generate_audio and SAMPLE_RATE
         from bark import generate_audio, SAMPLE_RATE
         import numpy as np
