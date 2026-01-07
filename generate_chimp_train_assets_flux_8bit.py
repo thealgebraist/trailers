@@ -98,7 +98,7 @@ def generate_images():
     
     try:
         from optimum.quanto import freeze, qfloat8, quantize
-        from diffusers import FluxPipeline
+        from diffusers import FluxPipeline, FluxTransformer2DModel
         from transformers import T5EncoderModel
         
         print(f"Loading base components from {base_model_id}...")
