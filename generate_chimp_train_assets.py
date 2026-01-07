@@ -148,6 +148,19 @@ def generate_voice_bark():
     print("--- Generating 32 Bark voice lines ---")
     os.makedirs(f"{OUTPUT_DIR}/voice", exist_ok=True)
     try:
+        # Workaround for torch 2.6+ weights_only loading restrictions when Bark checkpoints
+        # include numpy scalar globals. Allowlist the numpy scalar for torch.serialization
+        # so torch.load used by Bark can succeed (only do this if model files are trusted).
+        try:
+            import importlib
+            np = importlib.import_module('numpy')
+            if hasattr(torch, 'serialization') and hasattr(torch.serialization, 'add_safe_globals'):
+                try:
+                    torch.serialization.add_safe_globals([np.core.multiarray.scalar])
+                except Exception:
+                    pass
+        except Exception:
+            pass
         # suno/bark provides generate_audio and SAMPLE_RATE
         from bark import generate_audio, SAMPLE_RATE
         import numpy as np
