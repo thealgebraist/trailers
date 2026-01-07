@@ -4,12 +4,15 @@ import os
 import gc
 import subprocess
 import re
-import requests
 import numpy as np
+from transformers import AutoProcessor, BarkModel
 
 # --- Configuration ---
 OUTPUT_DIR = "assets_chimp_train"
 os.makedirs(f"{OUTPUT_DIR}/voice", exist_ok=True)
+
+if torch.cuda.is_available(): DEVICE = "cuda"
+else: DEVICE = "cpu"
 
 VO_SCRIPTS = [
     "Charlie the chimp sits in his cozy jungle hut, dreaming of a glowing golden banana.",
@@ -50,10 +53,13 @@ VO_SCRIPTS = [
 TOTAL_DURATION = 120.0
 SEGMENT_DURATION = TOTAL_DURATION / len(VO_SCRIPTS)
 
+def flush():
+    gc.collect()
+    if torch.cuda.is_available(): torch.cuda.empty_cache()
+
 def apply_audio_enhancement(file_path):
     """Applies high-quality voice processing using ffmpeg."""
     temp_path = file_path.replace(".wav", "_enhanced.wav")
-    # Compression, normalization and slight warmth
     filter_complex = "bass=g=3,acompressor=threshold=-12dB:ratio=3:makeup=4dB,loudnorm"
     cmd = ["ffmpeg", "-y", "-i", file_path, "-af", filter_complex, temp_path]
     try:
@@ -63,51 +69,54 @@ def apply_audio_enhancement(file_path):
         print(f"Enhancement failed for {file_path}: {e}")
 
 def generate_voiceover():
-    print(f"--- Generating 120s High Quality Voiceover (Vibe Voice) ---")
+    print(f"--- Generating 120s High Quality Voiceover (Bark) ---")
     
-    temp_txt = "vibevoice_temp.txt"
-    full_audio_segments = []
-    sample_rate = 44100 # Target SR, will be determined by first segment
-    
+    # PyTorch 2.6+ Workaround for Bark weights
     try:
+        import importlib
+        import warnings
+        np_mod = importlib.import_module('numpy')
+        if hasattr(torch.serialization, 'add_safe_globals'):
+            safe_types = []
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                for prefix in ['_core', 'core']:
+                    if hasattr(np_mod, prefix):
+                        mod = getattr(np_mod, prefix)
+                        if hasattr(mod, 'multiarray') and hasattr(mod.multiarray, 'scalar'):
+                            safe_types.append(mod.multiarray.scalar)
+            torch.serialization.add_safe_globals(list(set(safe_types)))
+    except Exception as e:
+        print(f"Safe globals patch failed: {e}")
+
+    try:
+        processor = AutoProcessor.from_pretrained("suno/bark")
+        model = BarkModel.from_pretrained("suno/bark", torch_dtype=torch.float32).to(DEVICE)
+        sample_rate = model.generation_config.sample_rate
+        voice_preset = "v2/en_speaker_6"
+        
+        full_audio_segments = []
+        
         for i, txt in enumerate(VO_SCRIPTS):
             idx = i + 1
             out_file = f"{OUTPUT_DIR}/voice/voice_{idx:02d}.wav"
             print(f"Generating segment {idx}/32: {txt[:50]}...")
             
-            with open(temp_txt, "w") as f:
-                f.write(txt)
+            inputs = processor(txt, voice_preset=voice_preset, return_tensors="pt").to(DEVICE)
+            with torch.no_grad():
+                audio_array = model.generate(**inputs, min_eos_p=0.05).cpu().numpy().squeeze()
             
-            cmd = [
-                "python3", "-m", "demo.realtime_model_inference_from_file",
-                "--model_path", "VibeVoiceModel",
-                "--txt_path", temp_txt,
-                "--speaker_name", "Carter"
-            ]
-            
-            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            
-            generated_wav = "output_from_file/Carter.wav"
-            if not os.path.exists(generated_wav):
-                print(f"Error: VibeVoice failed to produce {generated_wav}")
-                continue
-                
-            # Load and process duration
-            sr, data = scipy.io.wavfile.read(generated_wav)
-            sample_rate = sr
-            
-            if data.dtype == np.int16:
-                data = data.astype(np.float32) / 32768.0
-            
+            # Ensure precise timing (3.75s)
             target_samples = int(SEGMENT_DURATION * sample_rate)
-            if len(data) < target_samples:
-                data = np.pad(data, (0, target_samples - len(data)))
+            if len(audio_array) < target_samples:
+                audio_array = np.pad(audio_array, (0, target_samples - len(audio_array)))
             else:
-                data = data[:target_samples]
+                audio_array = audio_array[:target_samples]
             
-            scipy.io.wavfile.write(out_file, sample_rate, (data * 32767).astype(np.int16))
+            scipy.io.wavfile.write(out_file, sample_rate, audio_array)
             apply_audio_enhancement(out_file)
             
+            # Re-read for concatenation
             _, enhanced_data = scipy.io.wavfile.read(out_file)
             full_audio_segments.append(enhanced_data)
             
@@ -117,12 +126,10 @@ def generate_voiceover():
         scipy.io.wavfile.write(master_path, sample_rate, combined)
         
         print(f"Success! Master file: {master_path}")
+        del model; del processor; flush()
 
     except Exception as e:
         print(f"Voiceover generation failed: {e}")
-    finally:
-        if os.path.exists(temp_txt):
-            os.remove(temp_txt)
 
 if __name__ == "__main__":
     generate_voiceover()

@@ -119,56 +119,60 @@ def apply_trailer_voice_effect(file_path):
     except Exception as e: 
         print(f"Failed effect: {e}")
 
-def generate_voice_vibevoice():
-    """Generate 32 separate voice lines using Vibe Voice.
-    Requires VibeVoice environment and demo module.
+def generate_voice_bark():
+    """Generate 32 separate voice lines using Bark.
     """
-    print("--- Generating 32 Vibe Voice lines ---")
+    print("--- Generating 32 Bark voice lines ---")
     os.makedirs(f"{OUTPUT_DIR}/voice", exist_ok=True)
     
-    # We use a temporary text file for each generation as required by VibeVoice CLI
-    temp_txt = "vibevoice_temp.txt"
-    
-    for i, scene in enumerate(SCENES):
-        txt = scene['voice_prompt']
-        out_file = f"{OUTPUT_DIR}/voice/voice_{i+1:02d}.wav"
+    # PyTorch 2.6+ Workaround for Bark weights
+    try:
+        import importlib
+        import warnings
+        np_mod = importlib.import_module('numpy')
+        if hasattr(torch.serialization, 'add_safe_globals'):
+            safe_types = []
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                for prefix in ['_core', 'core']:
+                    if hasattr(np_mod, prefix):
+                        mod = getattr(np_mod, prefix)
+                        if hasattr(mod, 'multiarray') and hasattr(mod.multiarray, 'scalar'):
+                            safe_types.append(mod.multiarray.scalar)
+            torch.serialization.add_safe_globals(list(set(safe_types)))
+    except Exception as e:
+        print(f"Safe globals patch failed: {e}")
+
+    try:
+        from transformers import BarkModel
+        processor = AutoProcessor.from_pretrained("suno/bark")
+        model = BarkModel.from_pretrained("suno/bark", torch_dtype=torch.float32).to(DEVICE)
+        voice_preset = "v2/en_speaker_6"
+        sample_rate = model.generation_config.sample_rate
         
-        if os.path.exists(out_file):
-            continue
+        for i, scene in enumerate(SCENES):
+            txt = scene['voice_prompt']
+            out_file = f"{OUTPUT_DIR}/voice/voice_{i+1:02d}.wav"
             
-        print(f"Generating voice {i+1}/32: {txt[:60]}...")
-        
-        try:
-            with open(temp_txt, "w") as f:
-                f.write(txt)
-            
-            # Pattern from test_tts_benchmark.py
-            cmd = [
-                "python3", "-m", "demo.realtime_model_inference_from_file",
-                "--model_path", "VibeVoiceModel", # Using local path if it has weights, else "microsoft/VibeVoice-Realtime-0.5B"
-                "--txt_path", temp_txt,
-                "--speaker_name", "Carter" # Default speaker from benchmark
-            ]
-            
-            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            
-            # VibeVoice outputs to output_from_file/{speaker_name}.wav
-            generated_wav = "output_from_file/Carter.wav"
-            if os.path.exists(generated_wav):
-                os.replace(generated_wav, out_file)
-                apply_trailer_voice_effect(out_file)
-            else:
-                print(f"Warning: VibeVoice did not produce {generated_wav}")
+            if os.path.exists(out_file):
+                continue
                 
-        except Exception as e:
-            print(f"VibeVoice generation failed for scene {i+1}: {e}")
-            break
+            print(f"Generating voice {i+1}/32: {txt[:60]}...")
             
-    if os.path.exists(temp_txt):
-        os.remove(temp_txt)
+            inputs = processor(txt, voice_preset=voice_preset, return_tensors="pt").to(DEVICE)
+            with torch.no_grad():
+                audio_array = model.generate(**inputs, min_eos_p=0.05).cpu().numpy().squeeze()
+            
+            scipy.io.wavfile.write(out_file, sample_rate, audio_array)
+            apply_trailer_voice_effect(out_file)
+            
+        del model; del processor; flush()
+            
+    except Exception as e:
+        print(f"Bark generation failed: {e}")
 
 def generate_voice():
-    generate_voice_vibevoice()
+    generate_voice_bark()
 
 def generate_images():
     print("--- Generating Images (SDXL Lightning, 8 steps) ---")
