@@ -220,7 +220,7 @@ def generate_voice(movie):
     print(f"Generating Bark VO for: {movie['title']}")
     try:
         processor = AutoProcessor.from_pretrained("suno/bark")
-        model = BarkModel.from_pretrained("suno/bark", torch_dtype=torch.float32).to(DEVICE)
+        model = BarkModel.from_pretrained("suno/bark", dtype=torch.float32).to(DEVICE)
         voice_preset = "v2/en_speaker_9"
         sample_rate = model.generation_config.sample_rate
         
@@ -231,7 +231,7 @@ def generate_voice(movie):
             clean_text = re.sub(r'[^a-zA-Z0-9\s\.\,\!\?]', '', sent)
             inputs = processor(clean_text, voice_preset=voice_preset, return_tensors="pt").to(DEVICE)
             with torch.no_grad():
-                audio_array = model.generate(**inputs, min_eos_p=0.05).cpu().numpy().squeeze()
+                audio_array = model.generate(**inputs, attention_mask=inputs.get("attention_mask"), min_eos_p=0.05).cpu().numpy().squeeze()
             full_audio.append(audio_array)
             full_audio.append(np.zeros(int(0.2 * sample_rate), dtype=np.float32)) # Minimal gap
             
@@ -247,7 +247,7 @@ def generate_images(movie):
     
     print(f"Generating Images for: {movie['title']}")
     model_id = "black-forest-labs/FLUX.1-schnell"
-    pipe = FluxPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16)
+    pipe = FluxPipeline.from_pretrained(model_id, dtype=torch.bfloat16)
     if DEVICE == "cuda": pipe.enable_model_cpu_offload(); pipe.enable_vae_tiling()
     else: pipe.to(DEVICE)
     
@@ -267,7 +267,7 @@ def generate_audio(movie):
     os.makedirs(music_dir, exist_ok=True)
     
     print(f"Generating Music for: {movie['title']}")
-    pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float32)
+    pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", dtype=torch.float32)
     if DEVICE == "cuda": pipe.enable_model_cpu_offload()
     else: pipe.to(DEVICE)
     

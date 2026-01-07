@@ -82,7 +82,7 @@ def generate_voice_bark(output_path, text):
     print("--- Falling back to Bark ---")
     try:
         processor = AutoProcessor.from_pretrained("suno/bark")
-        model = BarkModel.from_pretrained("suno/bark", torch_dtype=torch.float32).to(DEVICE)
+        model = BarkModel.from_pretrained("suno/bark", dtype=torch.float32).to(DEVICE)
         voice_preset = "v2/en_speaker_9"
         sample_rate = model.generation_config.sample_rate
         total_target_len = int(120.0 * sample_rate)
@@ -92,7 +92,7 @@ def generate_voice_bark(output_path, text):
             clean_text = re.sub(r'[^a-zA-Z0-9\s\.\,\!\?]', '', sent)
             inputs = processor(clean_text, voice_preset=voice_preset, return_tensors="pt").to(DEVICE)
             with torch.no_grad():
-                audio_array = model.generate(**inputs, min_eos_p=0.05).cpu().numpy().squeeze()
+                audio_array = model.generate(**inputs, attention_mask=inputs.get("attention_mask"), min_eos_p=0.05).cpu().numpy().squeeze()
             full_audio.append(audio_array)
             full_audio.append(np.zeros(int(0.2 * sample_rate), dtype=np.float32))
         combined = np.concatenate(full_audio)
@@ -129,7 +129,7 @@ def generate_voice():
 def generate_images():
     print("--- Generating Images (8 steps) ---")
     model_id = "black-forest-labs/FLUX.1-schnell"
-    pipe = FluxPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16)
+    pipe = FluxPipeline.from_pretrained(model_id, dtype=torch.bfloat16)
     if DEVICE == "cuda": pipe.enable_model_cpu_offload(); pipe.enable_vae_tiling()
     else: pipe.to(DEVICE)
     for scene in SCENES:
@@ -143,7 +143,7 @@ def generate_images():
 def generate_audio():
     print("\n--- Generating Music & SFX (100 steps) ---")
     try:
-        pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float32)
+        pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", dtype=torch.float32)
         if DEVICE == "cuda": pipe.enable_model_cpu_offload()
         else: pipe.to(DEVICE)
         neg = "low quality, noise, distortion, artifacts, fillers, talking"

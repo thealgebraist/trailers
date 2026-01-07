@@ -54,7 +54,7 @@ def run_benchmark(model_info):
             model = AutoModel.from_pretrained(model_info["repo"]).to("cuda")
             inputs = processor(BENCHMARK_TEXT, return_tensors="pt").to("cuda")
             with torch.no_grad():
-                audio_array = model.generate(**inputs).cpu().numpy().squeeze()
+                audio_array = model.generate(**inputs, attention_mask=inputs.get("attention_mask")).cpu().numpy().squeeze()
             scipy.io.wavfile.write(out_path, rate=24000, data=audio_array)
             
         elif model_info["type"] == "local_torch":

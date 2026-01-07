@@ -9,7 +9,8 @@ import numpy as np
 import PIL.Image
 if not hasattr(PIL.Image, "ANTIALIAS"): PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
 from diffusers import FluxPipeline, StableAudioPipeline
-from transformers import AutoProcessor, BarkModel
+from transformers import AutoProcessor
+import ChatTTS
 
 # --- Configuration ---
 OUTPUT_DIR = "assets_wait"
@@ -85,21 +86,21 @@ def apply_trailer_voice_effect(file_path):
     try: subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); os.replace(temp_path, file_path)
     except Exception as e: print(f"Failed effect: {e}")
 
-def generate_voice_bark(output_path, text):
-    print("--- Falling back to Bark ---")
+def generate_voice_chattts(output_path, text):
+    print("--- Generating Voice with ChatTTS ---")
     try:
-        processor = AutoProcessor.from_pretrained("suno/bark")
-        model = BarkModel.from_pretrained("suno/bark", torch_dtype=torch.float32).to(DEVICE)
-        voice_preset = "v2/en_speaker_9"
-        sample_rate = model.generation_config.sample_rate
-        total_target_len = int(120.0 * sample_rate)
-        full_audio = []
-        sentences = [s.strip() for s in text.split(".") if s.strip()]
-        for sent in sentences:
-            clean_text = re.sub(r'[^a-zA-Z0-9\s\.\,\!\?]', '', sent)
-            inputs = processor(clean_text, voice_preset=voice_preset, return_tensors="pt").to(DEVICE)
+        chat = ChatTTS.Chat()
+        chat.load(compile=False)
+        wavs = chat.infer([text], use_decoder=True)
+        if wavs:
+            audio_array = np.array(wavs[0]).flatten()
+            scipy.io.wavfile.write(output_path, 24000, audio_array)
+            apply_trailer_voice_effect(output_path)
+            return True
+    except Exception as e: print(f"ChatTTS failed: {e}")
+    return False
             with torch.no_grad():
-                audio_array = model.generate(**inputs, min_eos_p=0.05).cpu().numpy().squeeze()
+                audio_array = model.generate(**inputs, attention_mask=inputs.get("attention_mask"), min_eos_p=0.05).cpu().numpy().squeeze()
             full_audio.append(audio_array)
             full_audio.append(np.zeros(int(0.2 * sample_rate), dtype=np.float32))
         combined = np.concatenate(full_audio)
@@ -130,13 +131,13 @@ def generate_voice():
     output_path = f"{OUTPUT_DIR}/voice/voiceover_full.wav"
     if os.path.exists(output_path) and "voice" not in sys.argv: return
     success = generate_voice_f5tts(output_path)
-    if not success: generate_voice_bark(output_path, " ".join(VO_SCRIPTS))
+    if not success: generate_voice_chattts(output_path, " ".join(VO_SCRIPTS))
 
 def generate_images():
     print("\n---" Generating Images (8 steps) ---")
     model_id = "black-forest-labs/FLUX.1-schnell"
     try:
-        pipe = FluxPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16)
+        pipe = FluxPipeline.from_pretrained(model_id, dtype=torch.bfloat16)
         if DEVICE == "cuda": pipe.enable_model_cpu_offload(); pipe.enable_vae_tiling()
         else: pipe.to(DEVICE)
         for scene in SCENES:
@@ -153,7 +154,7 @@ def generate_images():
 def generate_audio():
     print("\n---" Generating Music & SFX (100 steps) ---")
     try:
-        pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float32)
+        pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", dtype=torch.float32)
         if DEVICE == "cuda": pipe.enable_model_cpu_offload()
         else: pipe.to(DEVICE)
         neg = "low quality, noise, distortion, artifacts, fillers, talking"

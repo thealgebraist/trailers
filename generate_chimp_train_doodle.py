@@ -8,20 +8,19 @@ import requests
 import numpy as np
 import PIL.Image
 if not hasattr(PIL.Image, "ANTIALIAS"): PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
-from diffusers import StableAudioPipeline
+from diffusers import StableAudioPipeline, StableDiffusionXLPipeline
 import ChatTTS
 
 # --- Configuration ---
-OUTPUT_DIR = "assets_chimp_train"
+OUTPUT_DIR = "assets_chimp_train_doodle"
 os.makedirs(f"{OUTPUT_DIR}/images", exist_ok=True)
 os.makedirs(f"{OUTPUT_DIR}/voice", exist_ok=True)
 os.makedirs(f"{OUTPUT_DIR}/sfx", exist_ok=True)
 os.makedirs(f"{OUTPUT_DIR}/music", exist_ok=True)
 
 if torch.cuda.is_available(): DEVICE = "cuda"
+elif torch.backends.mps.is_available(): DEVICE = "mps"
 else: DEVICE = "cpu"
-
-# ... (rest of imports and data)
 
 # --- Narrative & Visual Data ---
 VO_SCRIPTS = [
@@ -154,21 +153,15 @@ def generate_voice():
     generate_voice_chattts()
 
 def generate_images():
-    print("--- Generating Images (SDXL Lightning, 8 steps) ---")
-    from diffusers import StableDiffusionXLPipeline, UNet2DConditionModel, EulerDiscreteScheduler
-    from huggingface_hub import hf_hub_download
-    from safetensors.torch import load_file
-
+    print("--- Generating Doodle Images (SDXL + Doodle LoRA) ---")
+    
     base = "stabilityai/stable-diffusion-xl-base-1.0"
-    repo = "ByteDance/SDXL-Lightning"
-    ckpt = "sdxl_lightning_4step_unet.safetensors"
+    lora_repo = "artificialguybr/doodle-redmond-doodle-hand-drawing-style-lora-for-sd-xl"
 
     try:
-        unet = UNet2DConditionModel.from_config(base, subfolder="unet").to(DEVICE, torch.float16)
-        unet.load_state_dict(load_file(hf_hub_download(repo, ckpt), device=str(DEVICE)))
-        pipe = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, dtype=torch.float16, variant="fp16").to(DEVICE)
-        pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
-
+        pipe = StableDiffusionXLPipeline.from_pretrained(base, torch_dtype=torch.float16, variant="fp16").to(DEVICE)
+        pipe.load_lora_weights(lora_repo)
+        
         if DEVICE == "cuda": pipe.enable_model_cpu_offload() 
         
         for scene in SCENES:
@@ -176,12 +169,12 @@ def generate_images():
             if os.path.exists(fname): continue
             
             print(f"Generating image: {scene['id']}")
-            prompt = f"{scene['visual']}, minimalist style, cinematic lighting, no humans, only animals, 8k photorealistic"
+            # Using 'doodle' as the trigger word
+            prompt = f"doodle style, hand drawn doodle, {scene['visual']}, minimalist, white background, simple lines"
             
             pipe(
                 prompt=prompt, 
-                guidance_scale=0.0, 
-                num_inference_steps=8, 
+                num_inference_steps=30, 
                 generator=torch.Generator(device="cpu").manual_seed(101 + int(scene['id'].split('_')[0]))
             ).images[0].save(fname)
             
@@ -190,7 +183,7 @@ def generate_images():
         print(f"Image generation failed: {e}")
 
 def generate_audio():
-    print("\n--- Generating Music & SFX (Stable Audio Open) ---")
+    print("\n--- Generating Music (Stable Audio Open) ---")
     try:
         model_id = "stabilityai/stable-audio-open-1.0"
         pipe = StableAudioPipeline.from_pretrained(model_id, dtype=torch.float32)

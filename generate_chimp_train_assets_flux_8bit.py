@@ -110,12 +110,12 @@ def generate_images():
             base_model_id, 
             transformer=None, 
             text_encoder_2=None, 
-            torch_dtype=torch.bfloat16
+            dtype=torch.bfloat16
         )
         
         # 1. Load and Quantize Transformer
         print("Loading and quantizing transformer...")
-        transformer = FluxTransformer2DModel.from_pretrained(base_model_id, subfolder="transformer", torch_dtype=torch.bfloat16)
+        transformer = FluxTransformer2DModel.from_pretrained(base_model_id, subfolder="transformer", dtype=torch.bfloat16)
         quantize(transformer, weights=qfloat8)
         freeze(transformer)
         
@@ -130,7 +130,7 @@ def generate_images():
             
         # 2. Load and Quantize Text Encoder 2 (T5)
         print("Loading and quantizing text_encoder_2...")
-        text_encoder_2 = T5EncoderModel.from_pretrained(base_model_id, subfolder="text_encoder_2", torch_dtype=torch.bfloat16)
+        text_encoder_2 = T5EncoderModel.from_pretrained(base_model_id, subfolder="text_encoder_2", dtype=torch.bfloat16)
         quantize(text_encoder_2, weights=qfloat8)
         freeze(text_encoder_2)
         

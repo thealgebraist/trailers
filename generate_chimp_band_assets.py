@@ -89,7 +89,7 @@ def generate_images():
         unet.load_state_dict(load_file(hf_hub_download(repo, ckpt), device=str(DEVICE)))
 
         # Load Pipeline
-        pipe = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, torch_dtype=torch.float16, variant="fp16").to(DEVICE)
+        pipe = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, dtype=torch.float16, variant="fp16").to(DEVICE)
         
         # Ensure scheduler uses trailing timesteps
         pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
@@ -137,7 +137,11 @@ def generate_scene_samples():
             
             with torch.no_grad():
                 # MusicGen ~50 tokens/sec. 8 seconds ~= 400 tokens.
-                audio_values = model.generate(**inputs, max_new_tokens=400)
+                audio_values = model.generate(
+                    **inputs, 
+                    attention_mask=inputs.get("attention_mask"), 
+                    max_new_tokens=400
+                )
                 
             audio_data = audio_values[0, 0].cpu().numpy()
             scipy.io.wavfile.write(fname, rate=sample_rate, data=audio_data)
@@ -193,7 +197,11 @@ def generate_soundtracks():
                 
                 with torch.no_grad():
                     # MusicGen limit is usually 30s (approx 1500 tokens)
-                    audio_values = model.generate(**inputs, max_new_tokens=1500)
+                    audio_values = model.generate(
+                        **inputs, 
+                        attention_mask=inputs.get("attention_mask"),
+                        max_new_tokens=1500
+                    )
                     
                 full_audio.append(audio_values[0, 0].cpu().numpy())
             

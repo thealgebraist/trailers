@@ -68,7 +68,7 @@ def generate_images():
         unet.load_state_dict(load_file(hf_hub_download(repo, ckpt), device=str(DEVICE)))
 
         # Load Pipeline
-        pipe = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, torch_dtype=torch.float16, variant="fp16").to(DEVICE)
+        pipe = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, dtype=torch.float16, variant="fp16").to(DEVICE)
         pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
 
         if DEVICE == "cuda": 

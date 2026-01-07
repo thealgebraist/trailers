@@ -84,7 +84,7 @@ def generate_voice_bark(output_path, text):
     print("--- Falling back to Bark ---")
     try:
         processor = AutoProcessor.from_pretrained("suno/bark")
-        model = BarkModel.from_pretrained("suno/bark", torch_dtype=torch.float32).to(DEVICE)
+        model = BarkModel.from_pretrained("suno/bark", dtype=torch.float32).to(DEVICE)
         voice_preset = "v2/en_speaker_9"
         sample_rate = model.generation_config.sample_rate
         sentences = [s.strip() for s in text.split(".") if s.strip()]
@@ -93,7 +93,7 @@ def generate_voice_bark(output_path, text):
             clean_text = re.sub(r'[^a-zA-Z0-9\s\.\,\!\?]', '', sent)
             inputs = processor(clean_text, voice_preset=voice_preset, return_tensors="pt").to(DEVICE)
             with torch.no_grad():
-                audio_array = model.generate(**inputs, min_eos_p=0.05).cpu().numpy().squeeze()
+                audio_array = model.generate(**inputs, attention_mask=inputs.get("attention_mask"), min_eos_p=0.05).cpu().numpy().squeeze()
             full_audio.append(audio_array)
             full_audio.append(np.zeros(int(0.2 * sample_rate), dtype=np.float32))
         combined = np.concatenate(full_audio)
@@ -164,14 +164,14 @@ def assemble_trailer(movie, assets_path):
 def main():
     for movie in MOVIES: generate_voice(movie)
     print("--- Loading AudioLDM2 ---")
-    audio_pipe = AudioLDM2Pipeline.from_pretrained("cvssp/audioldm2", torch_dtype=torch.float32).to(DEVICE)
+    audio_pipe = AudioLDM2Pipeline.from_pretrained("cvssp/audioldm2", dtype=torch.float32).to(DEVICE)
     for movie in MOVIES:
         fname = f"{OUTPUT_DIR}/{movie['file_prefix']}_music.wav"
         generate_music(audio_pipe, movie['music_prompt'], fname)
     del audio_pipe; flush()
     print("\n--- Loading Wan2.1-T2V-1.3B-Diffusers ---")
     try:
-        video_pipe = WanPipeline.from_pretrained("Wan-Video/Wan2.1-T2V-1.3B-Diffusers", torch_dtype=torch.bfloat16)
+        video_pipe = WanPipeline.from_pretrained("Wan-Video/Wan2.1-T2V-1.3B-Diffusers", dtype=torch.bfloat16)
         if DEVICE == "cuda": video_pipe.enable_model_cpu_offload()
         else: video_pipe.to(DEVICE)
         for movie in MOVIES:
