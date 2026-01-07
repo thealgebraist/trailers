@@ -6,6 +6,7 @@ import PIL.Image
 if not hasattr(PIL.Image, "ANTIALIAS"): PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
 from diffusers import StableDiffusionXLPipeline, UNet2DConditionModel, EulerDiscreteScheduler
 from huggingface_hub import hf_hub_download
+from safetensors.torch import load_file
 
 # --- Configuration ---
 OUTPUT_DIR = "assets_chimp_train"
@@ -14,48 +15,47 @@ os.makedirs(f"{OUTPUT_DIR}/images", exist_ok=True)
 if torch.cuda.is_available(): DEVICE = "cuda"
 else: DEVICE = "cpu"
 
-VO_SCRIPTS = [
-    "Charlie the chimp wakes up in his jungle home, dreaming of the perfect banana.",
-    "He finds a golden train ticket under a leaf and knows today is special.",
-    "Charlie waves goodbye to his monkey friends and sets off on his adventure.",
-    "He arrives at the bustling jungle train station, eyes wide with excitement.",
-    "The train pulls in, steam hissing, and Charlie hops aboard with a big grin.",
-    "He finds a window seat and presses his face to the glass, watching the trees blur by.",
-    "A friendly toucan conductor checks Charlie’s ticket and tips his hat.",
-    "The train rattles over a river, where crocodiles wave from the water below.",
-    "Charlie shares a snack with a shy lemur sitting beside him.",
-    "The train enters a dark tunnel, and everyone holds their breath in the shadows.",
-    "Out of the tunnel, sunlight floods the carriage and Charlie laughs with joy.",
-    "A family of parrots sings a song, filling the train with cheerful music.",
-    "Charlie sketches a banana in his notebook, imagining its sweet taste.",
-    "The train stops at a mountain station, and snow monkeys throw snowballs at the windows.",
-    "Charlie helps a lost baby elephant find her seat.",
-    "The train zooms past fields of wildflowers, colors swirling outside.",
-    "A wise old gorilla tells Charlie stories of legendary bananas.",
-    "Charlie spots a distant city and wonders if the best bananas are there.",
-    "The train slows as it nears Banana Market Station, excitement building.",
-    "Vendors wave bunches of bananas as the train comes to a stop.",
-    "Charlie leaps off, heart pounding, and races to the biggest fruit stand.",
-    "He inspects every banana, searching for the perfect one.",
-    "At last, he finds a huge, golden banana shining in the sunlight.",
-    "Charlie trades his ticket for the banana and hugs it close.",
-    "He takes a big bite, savoring the sweet, creamy flavor.",
-    "Other animals gather around, and Charlie shares his prize with new friends.",
-    "The sun sets as Charlie sits on the station bench, happy and full.",
-    "He waves goodbye to the market and boards the train home, banana in paw.",
-    "Charlie dreams of new adventures as the train chugs into the night.",
-    "Back in his jungle bed, Charlie smiles, knowing dreams can come true.",
-    "The stars twinkle above, and the jungle is peaceful once more.",
-    "Charlie’s train adventure is a story he’ll never forget."
+# Simplified, logical narrative prompts for 32 scenes
+# Focusing on the "same chimp" and "no humans"
+SCENE_PROMPTS = [
+    "A lone chimp in a cozy jungle hut, sitting on a wooden stool, deep in thought, thinking about a glowing golden banana.",
+    "Close-up of the same chimp's face, eyes closed, dreaming of a perfect banana.",
+    "The same chimp packing a small burlap sack in his jungle hut.",
+    "The same chimp walking towards a jungle train station with a steam locomotive.",
+    "The same chimp standing on a wooden train platform, holding a train ticket.",
+    "The same chimp looking at the approaching steam train.",
+    "The same chimp sitting inside a vintage wooden train carriage.",
+    "The same chimp looking out of the train window at the jungle passing by.",
+    "View from the train window: lush jungle trees blurring past.",
+    "The same chimp pressing his face against the train window glass.",
+    "The same chimp watching a river from the train window.",
+    "The same chimp relaxing in his train seat.",
+    "The same chimp stepping off the train onto a remote jungle station platform.",
+    "The same chimp looking at a signpost pointing towards 'Banana Market'.",
+    "The same chimp walking on a path through a dense, sunlit forest.",
+    "The same chimp looking up at the tall forest canopy.",
+    "The same chimp crossing a small stream in the forest.",
+    "The same chimp seeing the market in the distance.",
+    "The same chimp at a bustling banana market run by other chimps.",
+    "The same chimp inspecting a huge, glowing golden banana at a market stall.",
+    "The same chimp holding the golden banana triumphantly.",
+    "The same chimp walking back through the forest at twilight, blue atmosphere.",
+    "The same chimp in the forest at night, holding his golden banana, moonlight filtering through trees.",
+    "The same chimp navigating the dark forest, fireflies around him.",
+    "The same chimp at the jungle train station at night, waiting under a glowing lamp.",
+    "The same chimp sitting on a bench at the night station, banana by his side.",
+    "The same chimp watching the headlights of the night train arrive.",
+    "The same chimp inside the dim, peaceful train carriage at night.",
+    "The same chimp looking at the moon through the train window.",
+    "The same chimp resting his head against the wooden seat, looking happy.",
+    "The same chimp back in his jungle hut at night, tucked into bed.",
+    "The same chimp asleep in his bed with the golden banana on a table nearby."
 ]
 
 SCENES = []
-for i, voice_line in enumerate(VO_SCRIPTS):
+for i, prompt in enumerate(SCENE_PROMPTS):
     sid = f"{i+1:02d}_scene"
-    framing = "close-up" if i % 3 == 0 else ("wide-angle" if i % 3 == 1 else "medium shot")
-    image_prompt = (f"Photorealistic {framing} cinematic still of the scene: {voice_line} "
-                    "+ extremely detailed, realistic textures, cinematic lighting, 1024x1024, film grain, movie still, no cartoons")
-    SCENES.append({"id": sid, "visual": image_prompt})
+    SCENES.append({"id": sid, "visual": prompt})
 
 def flush():
     gc.collect()
@@ -68,12 +68,7 @@ def generate_images():
     ckpt = "sdxl_lightning_4step_unet.safetensors"
 
     try:
-        # Load UNet
-        from diffusers import StableDiffusionXLPipeline, UNet2DConditionModel, EulerDiscreteScheduler
-        from huggingface_hub import hf_hub_download
-        from safetensors.torch import load_file
-
-        # Load UNet
+        # Load UNet via safetensors
         print(f"Loading UNet from {repo}...")
         unet = UNet2DConditionModel.from_config(base, subfolder="unet").to(DEVICE, torch.float16)
         unet.load_state_dict(load_file(hf_hub_download(repo, ckpt), device=str(DEVICE)))
@@ -93,16 +88,15 @@ def generate_images():
             
             print(f"Generating image: {scene['id']}")
             
-            # Refine prompt to exclude humans and specify animal world
-            prompt = scene['visual'].replace("Vendors", "Chimp vendors").replace("city", "city of animals")
-            prompt = f"{prompt}, only animals, no humans, chimps and exotic creatures, photorealistic, 8k"
+            # Final prompt reinforcement
+            full_prompt = f"{scene['visual']}, minimalist style, cinematic lighting, no humans, only animals, 8k photorealistic"
             
             # SDXL Lightning specific settings: 8 steps, 0 guidance
             pipe(
-                prompt=prompt, 
+                prompt=full_prompt, 
                 guidance_scale=0.0, 
                 num_inference_steps=8, 
-                generator=torch.Generator(device="cpu").manual_seed(101)
+                generator=torch.Generator(device="cpu").manual_seed(101 + int(scene['id'].split('_')[0]))
             ).images[0].save(fname)
             
         del pipe; flush()

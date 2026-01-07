@@ -21,71 +21,85 @@ os.makedirs(f"{OUTPUT_DIR}/music", exist_ok=True)
 if torch.cuda.is_available(): DEVICE = "cuda"
 else: DEVICE = "cpu"
 
-# --- Narrative VO Data ---
+# --- Narrative & Visual Data ---
 VO_SCRIPTS = [
-    "Charlie the chimp wakes up in his jungle home, dreaming of the perfect banana.",
-    "He finds a golden train ticket under a leaf and knows today is special.",
-    "Charlie waves goodbye to his monkey friends and sets off on his adventure.",
-    "He arrives at the bustling jungle train station, eyes wide with excitement.",
-    "The train pulls in, steam hissing, and Charlie hops aboard with a big grin.",
-    "He finds a window seat and presses his face to the glass, watching the trees blur by.",
-    "A friendly toucan conductor checks Charlie’s ticket and tips his hat.",
-    "The train rattles over a river, where crocodiles wave from the water below.",
-    "Charlie shares a snack with a shy lemur sitting beside him.",
-    "The train enters a dark tunnel, and everyone holds their breath in the shadows.",
-    "Out of the tunnel, sunlight floods the carriage and Charlie laughs with joy.",
-    "A family of parrots sings a song, filling the train with cheerful music.",
-    "Charlie sketches a banana in his notebook, imagining its sweet taste.",
-    "The train stops at a mountain station, and snow monkeys throw snowballs at the windows.",
-    "Charlie helps a lost baby elephant find her seat.",
-    "The train zooms past fields of wildflowers, colors swirling outside.",
-    "A wise old gorilla tells Charlie stories of legendary bananas.",
-    "Charlie spots a distant city and wonders if the best bananas are there.",
-    "The train slows as it nears Banana Market Station, excitement building.",
-    "Vendors wave bunches of bananas as the train comes to a stop.",
-    "Charlie leaps off, heart pounding, and races to the biggest fruit stand.",
-    "He inspects every banana, searching for the perfect one.",
-    "At last, he finds a huge, golden banana shining in the sunlight.",
-    "Charlie trades his ticket for the banana and hugs it close.",
-    "He takes a big bite, savoring the sweet, creamy flavor.",
-    "Other animals gather around, and Charlie shares his prize with new friends.",
-    "The sun sets as Charlie sits on the station bench, happy and full.",
-    "He waves goodbye to the market and boards the train home, banana in paw.",
-    "Charlie dreams of new adventures as the train chugs into the night.",
-    "Back in his jungle bed, Charlie smiles, knowing dreams can come true.",
-    "The stars twinkle above, and the jungle is peaceful once more.",
-    "Charlie’s train adventure is a story he’ll never forget."
+    "Charlie the chimp sits in his cozy jungle hut, dreaming of a glowing golden banana.",
+    "He can almost taste the sweetness as he imagines the perfect fruit.",
+    "Today is the day; he packs his small bag and prepares for a grand journey.",
+    "Charlie arrives at the jungle train station, where the steam engine huffs and puffs.",
+    "He stands on the platform, his ticket held tightly in his furry hand.",
+    "The whistle blows, and Charlie knows his adventure is finally beginning.",
+    "He climbs aboard the wooden carriage and finds a comfortable seat.",
+    "The train starts to move, clicking and clacking along the iron rails.",
+    "Charlie sits quietly, watching the jungle landscape begin to move.",
+    "He presses his face against the cool glass of the window, mesmerized.",
+    "Tall trees and rushing rivers blur into a beautiful green streak.",
+    "The rhythm of the train lulls him into a peaceful, expectant state.",
+    "Finally, the train slows down as it pulls into the distant station.",
+    "Charlie hops off the train, looking around at the exciting new place.",
+    "He knows the great banana market is just through the nearby woods.",
+    "He enters the deep, lush forest, where sunlight filters through the canopy.",
+    "Every rustle in the leaves makes him think he is getting closer.",
+    "He walks with a steady pace, driven by the thought of that golden banana.",
+    "At last, he reaches the bustling banana market, run by friendly chimps.",
+    "He searches through the stalls until he sees it: the perfect golden banana.",
+    "He holds the banana high, his heart filled with pure, simple joy.",
+    "As evening falls, the forest turns into a landscape of deep blues and shadows.",
+    "Charlie walks back through the trees, the jungle alive with night sounds.",
+    "The moon rises high, lighting his path as he carries his treasure.",
+    "He reaches the station at night, the platform quiet under the glowing lamps.",
+    "He waits for the late-night train, his golden banana tucked safely away.",
+    "The distant light of the locomotive appears, cutting through the darkness.",
+    "Back on the train, Charlie watches the moonlight reflect off the trees.",
+    "The carriage is dim and peaceful as the train carries him back home.",
+    "He is tired but happy, resting his head against the wooden seat.",
+    "At last, Charlie is back in his own jungle bed, the journey complete.",
+    "He falls asleep with a smile, dreaming of his next big adventure."
 ]
 
-SCENE_DURATION = 4.0
+SCENE_PROMPTS = [
+    "A lone chimp in a cozy jungle hut, sitting on a wooden stool, deep in thought, thinking about a glowing golden banana.",
+    "Close-up of the same chimp's face, eyes closed, dreaming of a perfect banana.",
+    "The same chimp packing a small burlap sack in his jungle hut.",
+    "The same chimp walking towards a jungle train station with a steam locomotive.",
+    "The same chimp standing on a wooden train platform, holding a train ticket.",
+    "The same chimp looking at the approaching steam train.",
+    "The same chimp sitting inside a vintage wooden train carriage.",
+    "The same chimp looking out of the train window at the jungle passing by.",
+    "View from the train window: lush jungle trees blurring past.",
+    "The same chimp pressing his face against the train window glass.",
+    "The same chimp watching a river from the train window.",
+    "The same chimp relaxing in his train seat.",
+    "The same chimp stepping off the train onto a remote jungle station platform.",
+    "The same chimp looking at a signpost pointing towards 'Banana Market'.",
+    "The same chimp walking on a path through a dense, sunlit forest.",
+    "The same chimp looking up at the tall forest canopy.",
+    "The same chimp crossing a small stream in the forest.",
+    "The same chimp seeing the market in the distance.",
+    "The same chimp at a bustling banana market run by other chimps.",
+    "The same chimp inspecting a huge, glowing golden banana at a market stall.",
+    "The same chimp holding the golden banana triumphantly.",
+    "The same chimp walking back through the trees, the jungle alive with night sounds.",
+    "The same chimp in the forest at night, holding his golden banana, moonlight filtering through trees.",
+    "The same chimp navigating the dark forest, fireflies around him.",
+    "The same chimp at the jungle train station at night, waiting under a glowing lamp.",
+    "The same chimp sitting on a bench at the night station, banana by his side.",
+    "The same chimp watching the headlights of the night train arrive.",
+    "The same chimp inside the dim, peaceful train carriage at night.",
+    "The same chimp looking at the moon through the train window.",
+    "The same chimp resting his head against the wooden seat, looking happy.",
+    "The same chimp back in his jungle hut at night, tucked into bed.",
+    "The same chimp asleep in his bed with the golden banana on a table nearby."
+]
 
-# Build scene entries.
-# Note: The trailer script used a specific structure. We recreate it here based on the original chimp logic 
-# but adapted to the trailer script's processing style if needed.
 SCENES = []
-for i, voice_line in enumerate(VO_SCRIPTS):
+for i in range(32):
     sid = f"{i+1:02d}_scene"
-    framing = "close-up" if i % 3 == 0 else ("wide-angle" if i % 3 == 1 else "medium shot")
-    image_prompt = (f"Photorealistic {framing} cinematic still of the scene: {voice_line} "
-                    "+ extremely detailed, realistic textures, cinematic lighting, 1024x1024, film grain, movie still, no cartoons")
-    
-    # SFX logic preserved
-    text = voice_line.lower()
-    if "train" in text or "station" in text:
-        sfx = "train station ambience: distant train rumble, soft platform announcements, footsteps, ambient jungle birds"
-    elif "banana" in text:
-        sfx = "market sounds: vendors calling, rustling fruit, soft crowd murmur, light breeze"
-    elif "tunnel" in text:
-        sfx = "tunnel ambience: muffled train sounds, low rumble, echoes"
-    elif "parrot" in text or "parrots" in text:
-        sfx = "colorful birdcalls, chirps, tropical parrots singing"
-    elif "snow" in text or "snow monkeys" in text:
-        sfx = "cold mountain breeze, distant chatter, soft crunch of snow"
-    else:
-        sfx = "jungle ambience: distant insect hum, soft birdsong, rustling leaves"
-        
-    scene = {"id": sid, "visual": image_prompt, "voice_prompt": voice_line, "sfx_prompt": sfx}
-    SCENES.append(scene)
+    SCENES.append({
+        "id": sid, 
+        "visual": SCENE_PROMPTS[i], 
+        "voice_prompt": VO_SCRIPTS[i]
+    })
 
 MUSIC_THEMES = [
     { "id": "theme_fun", "prompt": "Upbeat, playful orchestral score with jungle percussion and cheerful melodies. High quality." }
@@ -96,9 +110,7 @@ def flush():
     if torch.cuda.is_available(): torch.cuda.empty_cache()
 
 def apply_trailer_voice_effect(file_path):
-    """Applies a simple audio effect chain using ffmpeg."""
     temp_path = file_path.replace(".wav", "_temp.wav")
-    # Simple compression and EQ for clarity
     filter_complex = "lowshelf=g=5:f=100,acompressor=threshold=-12dB:ratio=4:makeup=4dB"
     cmd = ["ffmpeg", "-y", "-i", file_path, "-af", filter_complex, temp_path]
     try: 
@@ -112,84 +124,62 @@ def generate_voice_fishspeech():
     print("--- Generating 32 Fish Speech voice lines ---")
     
     try:
-        from fish_audio_sdk import Session, TTS
+        from fish_audio_sdk import Session, TTSRequest
         session = Session() 
-        tts = TTS(session) 
         
         for i, scene in enumerate(SCENES):
             txt = scene['voice_prompt']
             out_file = f"{OUTPUT_DIR}/voice/voice_{i+1:02d}.wav"
-            meta_file = f"{OUTPUT_DIR}/voice/voice_{i+1:02d}.txt"
             
             if os.path.exists(out_file):
-                print(f"Skipping existing {out_file}")
                 continue
                 
             print(f"Generating voice {i+1}/32: {txt[:60]}...")
-            # SDK usage
-            audio_bytes = tts.tts(text=txt, reference_id="default")
             
             with open(out_file, "wb") as f:
-                f.write(audio_bytes)
-                
-            with open(meta_file, 'w') as mf:
-                mf.write(f"Prompt: {txt}\nModel: fish-speech-v1.5\n")
-            print(f"Wrote {out_file}")
+                for chunk in session.tts(TTSRequest(text=txt, format="wav')):
+                    f.write(chunk)
             
-            # Apply optional effect
             apply_trailer_voice_effect(out_file)
             
     except ImportError:
-        print("Error: 'fish-audio-sdk' not found. Please install it with: pip install fish-audio-sdk")
+        print("Error: 'fish-audio-sdk' not found.")
     except Exception as e:
         print(f"Fish Speech generation failed: {e}")
 
 def generate_voice():
-    """Wrapper to handle voice generation strategy."""
-    # In this script, we default to Fish Speech as requested
     generate_voice_fishspeech()
 
 def generate_images():
-    print("--- Generating Images (SDXL Lightning, 4 steps) ---")
+    print("--- Generating Images (SDXL Lightning, 8 steps) ---")
+    from diffusers import StableDiffusionXLPipeline, UNet2DConditionModel, EulerDiscreteScheduler
+    from huggingface_hub import hf_hub_download
+    from safetensors.torch import load_file
+
     base = "stabilityai/stable-diffusion-xl-base-1.0"
     repo = "ByteDance/SDXL-Lightning"
     ckpt = "sdxl_lightning_4step_unet.safetensors"
 
     try:
-        from diffusers import StableDiffusionXLPipeline, UNet2DConditionModel, EulerDiscreteScheduler
-        from huggingface_hub import hf_hub_download
-        from safetensors.torch import load_file
-
-        # Load UNet
-        print(f"Loading UNet from {repo}...")
         unet = UNet2DConditionModel.from_config(base, subfolder="unet").to(DEVICE, torch.float16)
         unet.load_state_dict(load_file(hf_hub_download(repo, ckpt), device=str(DEVICE)))
-
-        # Load Pipeline
         pipe = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, torch_dtype=torch.float16, variant="fp16").to(DEVICE)
-        
-        # Ensure scheduler uses trailing timesteps
         pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
 
-        if DEVICE == "cuda": 
-            pipe.enable_model_cpu_offload() 
+        if DEVICE == "cuda": pipe.enable_model_cpu_offload() 
         
         for scene in SCENES:
             fname = f"{OUTPUT_DIR}/images/{scene['id']}.png"
             if os.path.exists(fname): continue
             
             print(f"Generating image: {scene['id']}")
+            prompt = f"{scene['visual']}, minimalist style, cinematic lighting, no humans, only animals, 8k photorealistic"
             
-            # Refine prompt to exclude humans and specify animal world
-            prompt = scene['visual'].replace("Vendors", "Chimp vendors").replace("city", "city of animals")
-            prompt = f"{prompt}, only animals, no humans, chimps and exotic creatures, photorealistic, 8k"
-            
-            # SDXL Lightning specific settings: 8 steps, 0 guidance
             pipe(
                 prompt=prompt, 
                 guidance_scale=0.0, 
                 num_inference_steps=8, 
-                generator=torch.Generator(device="cpu").manual_seed(101)
+                generator=torch.Generator(device="cpu").manual_seed(101 + int(scene['id'].split('_')[0]))
             ).images[0].save(fname)
             
         del pipe; flush()
@@ -199,7 +189,6 @@ def generate_images():
 def generate_audio():
     print("\n--- Generating Music & SFX (Stable Audio Open) ---")
     try:
-        # Using Stable Audio Open for SFX and Music
         model_id = "stabilityai/stable-audio-open-1.0"
         pipe = StableAudioPipeline.from_pretrained(model_id, torch_dtype=torch.float32)
         if DEVICE == "cuda": pipe.enable_model_cpu_offload()
@@ -207,20 +196,6 @@ def generate_audio():
         
         neg = "low quality, noise, distortion, artifacts, fillers, talking"
         
-        # Generate SFX
-        for scene in SCENES:
-            filename = f"{OUTPUT_DIR}/sfx/{scene['id']}.wav"
-            if os.path.exists(filename): continue
-            print(f"Generating SFX: {scene['id']}")
-            audio = pipe(
-                prompt=scene['sfx_prompt'], 
-                negative_prompt=neg, 
-                num_inference_steps=100, 
-                audio_end_in_s=SCENE_DURATION
-            ).audios[0]
-            scipy.io.wavfile.write(filename, rate=44100, data=audio.cpu().numpy().T)
-            
-        # Generate MUSIC
         for theme in MUSIC_THEMES:
             filename = f"{OUTPUT_DIR}/music/{theme['id']}.wav"
             if os.path.exists(filename): continue
@@ -229,7 +204,7 @@ def generate_audio():
                 prompt=theme['prompt'], 
                 negative_prompt=neg, 
                 num_inference_steps=100, 
-                audio_end_in_s=45.0
+                audio_end_in_s=120.0
             ).audios[0]
             scipy.io.wavfile.write(filename, rate=44100, data=audio.cpu().numpy().T)
             
@@ -246,7 +221,6 @@ if __name__ == "__main__":
         generate_images()
         sys.exit(0)
     
-    # Default: Run all
     generate_images()
     generate_voice()
     generate_audio()
