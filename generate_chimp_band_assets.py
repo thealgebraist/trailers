@@ -9,7 +9,7 @@ import PIL.Image
 if not hasattr(PIL.Image, "ANTIALIAS"): PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
 from diffusers import StableDiffusionXLPipeline, UNet2DConditionModel, EulerDiscreteScheduler
 from huggingface_hub import hf_hub_download
-from transformers import AutoProcessor, BarkModel
+from transformers import AutoProcessor, BarkModel, MusicgenForConditionalGeneration
 
 # --- Configuration ---
 OUTPUT_DIR = "assets_chimp_band"
@@ -113,20 +113,12 @@ def generate_images():
         print(f"Image generation failed: {e}")
 
 def generate_scene_audio():
-    print("--- Generating Scene Audio (Bark) ---")
+    print("--- Generating Scene Audio (MusicGen) ---")
     try:
-        # Register safe globals for Bark if needed (PyTorch 2.6+ compat)
-        if hasattr(torch.serialization, 'add_safe_globals'):
-             # Attempt to register numpy scalar if possible, mostly for the weights loading
-             try:
-                 import numpy
-                 torch.serialization.add_safe_globals([numpy.core.multiarray.scalar])
-             except: pass
-
-        processor = AutoProcessor.from_pretrained("suno/bark")
-        model = BarkModel.from_pretrained("suno/bark", torch_dtype=torch.float32).to(DEVICE)
+        processor = AutoProcessor.from_pretrained("facebook/musicgen-small")
+        model = MusicgenForConditionalGeneration.from_pretrained("facebook/musicgen-small").to(DEVICE)
         
-        sample_rate = model.generation_config.sample_rate
+        sample_rate = 32000 # MusicGen default
         
         for scene in SCENES:
             fname = f"{OUTPUT_DIR}/sfx/{scene['id']}.wav"
@@ -134,15 +126,20 @@ def generate_scene_audio():
             
             print(f"Generating Audio for {scene['id']}: {scene['audio_prompt']}")
             
-            # Bark text-to-audio
-            inputs = processor(scene['audio_prompt'], voice_preset="v2/en_speaker_6", return_tensors="pt").to(DEVICE)
+            inputs = processor(
+                text=[scene['audio_prompt']],
+                padding=True,
+                return_tensors="pt",
+            ).to(DEVICE)
             
             with torch.no_grad():
-                # Generate ~4 seconds roughly matches image duration
-                audio_array = model.generate(**inputs, do_sample=True, fine_temperature=0.4, coarse_temperature=0.8).cpu().numpy().squeeze()
-            
+                # Generate ~5 seconds (256 tokens is roughly 5s depending on config, let's use max_new_tokens)
+                # MusicGen generates 50 tokens/sec approx. So 250 tokens ~ 5s
+                audio_values = model.generate(**inputs, max_new_tokens=256)
+                
             # Save
-            scipy.io.wavfile.write(fname, rate=sample_rate, data=audio_array)
+            audio_data = audio_values[0, 0].cpu().numpy()
+            scipy.io.wavfile.write(fname, rate=sample_rate, data=audio_data)
             
         del model; del processor; flush()
         
@@ -150,30 +147,31 @@ def generate_scene_audio():
         print(f"Scene audio generation failed: {e}")
 
 def generate_soundtrack():
-    print("--- Generating 4 Bongo Rich Songs (120s each) ---")
+    print("--- Generating 4 Bongo Rich Songs (120s each with MusicGen) ---")
     
     try:
-        processor = AutoProcessor.from_pretrained("suno/bark")
-        model = BarkModel.from_pretrained("suno/bark", torch_dtype=torch.float32).to(DEVICE)
-        sample_rate = model.generation_config.sample_rate
+        processor = AutoProcessor.from_pretrained("facebook/musicgen-small")
+        model = MusicgenForConditionalGeneration.from_pretrained("facebook/musicgen-small").to(DEVICE)
+        sample_rate = 32000
         
         # 4 distinct song themes/structures
+        # Note: MusicGen max duration is typically 30s. We will generate 4x30s chunks.
         songs = [
             {
                 "filename": "soundtrack_1.wav",
-                "prompts": ["Fast paced bongo drums solo with enthusiastic shouting. [music]"] * 10
+                "prompts": ["Fast paced bongo drums solo with enthusiastic shouting. High quality."] * 4
             },
             {
                 "filename": "soundtrack_2.wav",
-                "prompts": ["A funky bass line with heavy bongo percussion and cowbell. [music]"] * 10
+                "prompts": ["A funky bass line with heavy bongo percussion and cowbell. High quality."] * 4
             },
             {
                 "filename": "soundtrack_3.wav",
-                "prompts": ["Wild chaotic bongo frenzy with a banjo strumming rapidly. [music]"] * 10
+                "prompts": ["Wild chaotic bongo frenzy with a banjo strumming rapidly. High quality."] * 4
             },
             {
                 "filename": "soundtrack_4.wav",
-                "prompts": ["Deep rhythmic tribal bongos with a steady cowbell beat. [music]"] * 10
+                "prompts": ["Deep rhythmic tribal bongos with a steady cowbell beat. High quality."] * 4
             }
         ]
 
@@ -186,14 +184,19 @@ def generate_soundtrack():
             print(f"Generating {song['filename']}...")
             full_audio = []
             
-            # Generate segments to reach ~120s
-            for p in song["prompts"]:
-                print(f"  Segment: {p}")
-                inputs = processor(p, voice_preset="v2/en_speaker_6", return_tensors="pt").to(DEVICE)
+            for i, p in enumerate(song["prompts"]):
+                print(f"  Segment {i+1}/4: {p}")
+                inputs = processor(
+                    text=[p],
+                    padding=True,
+                    return_tensors="pt",
+                ).to(DEVICE)
+                
                 with torch.no_grad():
-                    # do_sample=True allows variation even with identical prompts
-                    audio = model.generate(**inputs, do_sample=True, min_eos_p=0.05).cpu().numpy().squeeze()
-                    full_audio.append(audio)
+                    # ~30 seconds = 1500 tokens (50 tokens/sec)
+                    audio_values = model.generate(**inputs, max_new_tokens=1500)
+                    
+                full_audio.append(audio_values[0, 0].cpu().numpy())
             
             combined = np.concatenate(full_audio)
             scipy.io.wavfile.write(fname, rate=sample_rate, data=combined)
