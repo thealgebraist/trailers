@@ -106,7 +106,7 @@ def generate_images():
             pipe(
                 prompt=scene['visual'], 
                 guidance_scale=0.0, 
-                num_inference_steps=4, 
+                num_inference_steps=8, 
                 generator=torch.Generator(device="cpu").manual_seed(100 + int(scene['id'].split('_')[0]))
             ).images[0].save(fname)
             

@@ -93,11 +93,11 @@ def generate_images():
             print(f"Generating image: {scene['id']}")
             prompt = scene['visual']
             
-            # SDXL Lightning specific settings: 4 steps, 0 guidance
+            # SDXL Lightning specific settings: 8 steps, 0 guidance
             pipe(
                 prompt=prompt, 
                 guidance_scale=0.0, 
-                num_inference_steps=4, 
+                num_inference_steps=8, 
                 generator=torch.Generator(device="cpu").manual_seed(101)
             ).images[0].save(fname)
             
