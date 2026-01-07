@@ -137,7 +137,7 @@ def generate_voice_fishspeech():
             print(f"Generating voice {i+1}/32: {txt[:60]}...")
             
             with open(out_file, "wb") as f:
-                for chunk in session.tts(TTSRequest(text=txt, format="wav')):
+                for chunk in session.tts(TTSRequest(text=txt, format="wav")):
                     f.write(chunk)
             
             apply_trailer_voice_effect(out_file)
