@@ -92,25 +92,55 @@ def flush():
     if torch.cuda.is_available(): torch.cuda.empty_cache()
 
 def generate_images():
-    print("\n--- Generating Images (flux.1 schnell) ---")
-    # Base model for structure (scheduler, vae, tokenizer, etc.)
+    print("\n--- Generating Images (flux.1 schnell 8-bit) ---")
     base_model_id = "black-forest-labs/FLUX.1-schnell"
-    # Local optimized transformer path
-    transformer_path = "/workspace/.hf_home/hub/models--PrunaAI--FLUX.1-schnell-8bit/snapshots/51f676f44a2720848b5451bab4459a538367bdff"
+    pruna_path = "/workspace/.hf_home/hub/models--PrunaAI--FLUX.1-schnell-8bit/snapshots/51f676f44a2720848b5451bab4459a538367bdff"
     
     try:
+        from optimum.quanto import freeze, qfloat8, quantize
         from diffusers import FluxTransformer2DModel
-        print(f"Loading base pipeline from {base_model_id}...")
-        pipe = FluxPipeline.from_pretrained(base_model_id, torch_dtype=torch.bfloat16)
+        from transformers import T5EncoderModel
         
-        print(f"Loading optimized transformer from {transformer_path}...")
-        transformer = FluxTransformer2DModel.from_pretrained(
-            transformer_path, 
-            torch_dtype=torch.bfloat16,
-            use_safetensors=True
+        print(f"Loading base components from {base_model_id}...")
+        pipe = FluxPipeline.from_pretrained(
+            base_model_id, 
+            transformer=None, 
+            text_encoder_2=None, 
+            torch_dtype=torch.bfloat16
         )
-        pipe.transformer = transformer
         
+        # 1. Load and Quantize Transformer
+        print("Loading and quantizing transformer...")
+        transformer = FluxTransformer2DModel.from_pretrained(base_model_id, subfolder="transformer", torch_dtype=torch.bfloat16)
+        quantize(transformer, weights=qfloat8)
+        freeze(transformer)
+        
+        transformer_weights_path = os.path.join(pruna_path, "transformer.pt")
+        if os.path.exists(transformer_weights_path):
+            print(f"Loading transformer weights from {transformer_weights_path}...")
+            # If PrunaAI provided the full state dict
+            state_dict = torch.load(transformer_weights_path, map_location="cpu", weights_only=True)
+            transformer.load_state_dict(state_dict)
+        else:
+            print(f"Warning: {transformer_weights_path} not found. Using base transformer.")
+            
+        # 2. Load and Quantize Text Encoder 2 (T5)
+        print("Loading and quantizing text_encoder_2...")
+        text_encoder_2 = T5EncoderModel.from_pretrained(base_model_id, subfolder="text_encoder_2", torch_dtype=torch.bfloat16)
+        quantize(text_encoder_2, weights=qfloat8)
+        freeze(text_encoder_2)
+        
+        te2_weights_path = os.path.join(pruna_path, "text_encoder_2.pt")
+        if os.path.exists(te2_weights_path):
+            print(f"Loading text_encoder_2 weights from {te2_weights_path}...")
+            state_dict_te2 = torch.load(te2_weights_path, map_location="cpu", weights_only=True)
+            text_encoder_2.load_state_dict(state_dict_te2)
+        else:
+            print(f"Warning: {te2_weights_path} not found. Using base text_encoder_2.")
+
+        # 3. Assemble Pipeline
+        pipe.transformer = transformer
+        pipe.text_encoder_2 = text_encoder_2
         pipe.to(DEVICE)
         
         for scene in SCENES:
@@ -120,7 +150,6 @@ def generate_images():
                 continue
             print(f"Generating image: {scene['id']}")
             full_prompt = scene['image_prompt']
-            # Flux Schnell is optimized for 4 steps and no guidance scale
             pipe(
                 prompt=full_prompt, 
                 height=1024, 
@@ -129,10 +158,12 @@ def generate_images():
                 generator=torch.Generator(device=DEVICE).manual_seed(101)
             ).images[0].save(filename)
             with open(txt_filename, "w") as f:
-                f.write(f"Model: {transformer_path} (base: {base_model_id})\nImage Prompt: {full_prompt}\nSteps: 4\nRes: 1024x1024\nSeed: 101\n")
+                f.write(f"Model: PrunaAI 8-bit (path: {pruna_path})\nPrompt: {full_prompt}\n")
         del pipe; flush()
     except Exception as e:
         print(f"Image generation failed: {e}")
+        import traceback
+        traceback.print_exc()
 
 def main():
     import sys
