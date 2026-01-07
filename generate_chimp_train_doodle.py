@@ -4,7 +4,6 @@ import os
 import gc
 import subprocess
 import re
-import requests
 import numpy as np
 import PIL.Image
 if not hasattr(PIL.Image, "ANTIALIAS"): PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
@@ -22,11 +21,11 @@ if torch.cuda.is_available(): DEVICE = "cuda"
 elif torch.backends.mps.is_available(): DEVICE = "mps"
 else: DEVICE = "cpu"
 
-# --- Narrative & Visual Data ---
+# --- Narrative & Visual Data (32 Scenes) ---
 VO_SCRIPTS = [
     "Charlie the chimp sits in his cozy jungle hut, dreaming of a glowing golden banana.",
     "He can almost taste the sweetness as he imagines the perfect fruit.",
-    "Today is the day; he packs his small bag and prepares for a grand journey.",
+    "Today is the day. He packs his small bag and prepares for a grand journey.",
     "Charlie arrives at the jungle train station, where the steam engine huffs and puffs.",
     "He stands on the platform, his ticket held tightly in his furry hand.",
     "The whistle blows, and Charlie knows his adventure is finally beginning.",
@@ -112,18 +111,18 @@ def flush():
 
 def apply_trailer_voice_effect(file_path):
     temp_path = file_path.replace(".wav", "_temp.wav")
-    filter_complex = "lowshelf=g=5:f=100,acompressor=threshold=-12dB:ratio=4:makeup=4dB"
+    # Voice effect: subtle compression and warmth
+    filter_complex = "lowshelf=g=3:f=100,acompressor=threshold=-15dB:ratio=3:makeup=5dB"
     cmd = ["ffmpeg", "-y", "-i", file_path, "-af", filter_complex, temp_path]
     try: 
         subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         os.replace(temp_path, file_path)
     except Exception as e: 
-        print(f"Failed effect: {e}")
+        pass
 
 def generate_voice_chattts():
     """Generate 32 separate voice lines using ChatTTS."""
     print("--- Generating 32 ChatTTS voice lines ---")
-    os.makedirs(f"{OUTPUT_DIR}/voice", exist_ok=True)
     
     try:
         chat = ChatTTS.Chat()
@@ -131,30 +130,30 @@ def generate_voice_chattts():
         
         for i, scene in enumerate(SCENES):
             txt = scene['voice_prompt']
+            # STRICT SANITIZATION to avoid narrow() error and invalid chars
+            txt = re.sub(r'[^a-zA-Z0-9,.?!\' ]', ' ', txt)
+            txt = txt.strip()
+            
             out_file = f"{OUTPUT_DIR}/voice/voice_{i+1:02d}.wav"
-            
-            if os.path.exists(out_file):
-                continue
+            if os.path.exists(out_file): continue
                 
-            print(f"Generating voice {i+1}/32: {txt[:60]}...")
+            print(f"Generating voice {i+1}/32: {txt[:50]}...")
             
-            wavs = chat.infer([txt], use_decoder=True)
-            if wavs:
-                audio_array = np.array(wavs[0]).flatten()
-                scipy.io.wavfile.write(out_file, 24000, audio_array)
-                apply_trailer_voice_effect(out_file)
-            
-        del chat; flush()
+            try:
+                wavs = chat.infer([txt], use_decoder=True)
+                if wavs and len(wavs[0]) > 0:
+                    audio_array = np.array(wavs[0]).flatten()
+                    if audio_array.size > 0:
+                        scipy.io.wavfile.write(out_file, 24000, audio_array)
+                        apply_trailer_voice_effect(out_file)
+            except Exception as e:
+                print(f"Error for segment {i+1}: {e}")
             
     except Exception as e:
-        print(f"ChatTTS generation failed: {e}")
-
-def generate_voice():
-    generate_voice_chattts()
+        print(f"ChatTTS failed: {e}")
 
 def generate_images():
     print("--- Generating Doodle Images (SDXL + Doodle LoRA) ---")
-    
     base = "stabilityai/stable-diffusion-xl-base-1.0"
     lora_repo = "artificialguybr/doodle-redmond-doodle-hand-drawing-style-lora-for-sd-xl"
 
@@ -169,28 +168,26 @@ def generate_images():
             if os.path.exists(fname): continue
             
             print(f"Generating image: {scene['id']}")
-            # Using 'doodle' as the trigger word
-            prompt = f"doodle style, hand drawn doodle, {scene['visual']}, minimalist, white background, simple lines"
+            # Trigger words: "doodle style", "hand drawn doodle"
+            prompt = f"doodle style, hand drawn doodle, {scene['visual']}, minimalist, white background, simple sharp lines"
             
             pipe(
                 prompt=prompt, 
                 num_inference_steps=30, 
-                generator=torch.Generator(device="cpu").manual_seed(101 + int(scene['id'].split('_')[0]))
+                generator=torch.Generator(device="cpu").manual_seed(101 + i)
             ).images[0].save(fname)
             
         del pipe; flush()
     except Exception as e:
         print(f"Image generation failed: {e}")
 
-def generate_audio():
+def generate_music():
     print("\n--- Generating Music (Stable Audio Open) ---")
     try:
         model_id = "stabilityai/stable-audio-open-1.0"
-        pipe = StableAudioPipeline.from_pretrained(model_id, dtype=torch.float32)
+        pipe = StableAudioPipeline.from_pretrained(model_id, torch_dtype=torch.float32)
         if DEVICE == "cuda": pipe.enable_model_cpu_offload()
         else: pipe.to(DEVICE)
-        
-        neg = "low quality, noise, distortion, artifacts, fillers, talking"
         
         for theme in MUSIC_THEMES:
             filename = f"{OUTPUT_DIR}/music/{theme['id']}.wav"
@@ -198,25 +195,20 @@ def generate_audio():
             print(f"Generating Music: {theme['id']}")
             audio = pipe(
                 prompt=theme['prompt'], 
-                negative_prompt=neg, 
-                num_inference_steps=100, 
                 audio_end_in_s=120.0
             ).audios[0]
             scipy.io.wavfile.write(filename, rate=44100, data=audio.cpu().numpy().T)
-            
         del pipe; flush()
     except Exception as e: 
-        print(f"Audio generation failed: {e}")
+        print(f"Music failed: {e}")
 
 if __name__ == "__main__":
     import sys
-    if "voice" in sys.argv: 
-        generate_voice()
-        sys.exit(0)
-    if "images" in sys.argv:
-        generate_images()
-        sys.exit(0)
+    # Handle optional flags
+    if "voice" in sys.argv: generate_voice_chattts(); sys.exit(0)
+    if "images" in sys.argv: generate_images(); sys.exit(0)
+    if "music" in sys.argv: generate_music(); sys.exit(0)
     
     generate_images()
-    generate_voice()
-    generate_audio()
+    generate_voice_chattts()
+    generate_music()
