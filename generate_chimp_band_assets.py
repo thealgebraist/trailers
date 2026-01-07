@@ -150,33 +150,53 @@ def generate_scene_audio():
         print(f"Scene audio generation failed: {e}")
 
 def generate_soundtrack():
-    print("--- Generating Bongo Rich Soundtrack (Bark) ---")
-    fname = f"{OUTPUT_DIR}/music/soundtrack.wav"
-    if os.path.exists(fname): return
-
+    print("--- Generating 4 Bongo Rich Songs (120s each) ---")
+    
     try:
         processor = AutoProcessor.from_pretrained("suno/bark")
         model = BarkModel.from_pretrained("suno/bark", torch_dtype=torch.float32).to(DEVICE)
         sample_rate = model.generation_config.sample_rate
         
-        # Create a longer sequence by chaining prompts
-        prompts = [
-            "A fast paced bongo drum solo with enthusiastic shouting. [music]",
-            "More intense bongo drums with a cowbell rhythm. [music]",
-            "A wild bongo frenzy with a banjo accompaniment. [music]",
-            "Even more bongos soloing wildly. [music]"
+        # 4 distinct song themes/structures
+        songs = [
+            {
+                "filename": "soundtrack_1.wav",
+                "prompts": ["Fast paced bongo drums solo with enthusiastic shouting. [music]"] * 10
+            },
+            {
+                "filename": "soundtrack_2.wav",
+                "prompts": ["A funky bass line with heavy bongo percussion and cowbell. [music]"] * 10
+            },
+            {
+                "filename": "soundtrack_3.wav",
+                "prompts": ["Wild chaotic bongo frenzy with a banjo strumming rapidly. [music]"] * 10
+            },
+            {
+                "filename": "soundtrack_4.wav",
+                "prompts": ["Deep rhythmic tribal bongos with a steady cowbell beat. [music]"] * 10
+            }
         ]
-        
-        full_audio = []
-        for p in prompts:
-            print(f"Generating soundtrack segment: {p}")
-            inputs = processor(p, voice_preset="v2/en_speaker_6", return_tensors="pt").to(DEVICE)
-            with torch.no_grad():
-                audio = model.generate(**inputs, do_sample=True).cpu().numpy().squeeze()
-                full_audio.append(audio)
-        
-        combined = np.concatenate(full_audio)
-        scipy.io.wavfile.write(fname, rate=sample_rate, data=combined)
+
+        for song in songs:
+            fname = f"{OUTPUT_DIR}/music/{song['filename']}"
+            if os.path.exists(fname): 
+                print(f"Skipping {fname}")
+                continue
+
+            print(f"Generating {song['filename']}...")
+            full_audio = []
+            
+            # Generate segments to reach ~120s
+            for p in song["prompts"]:
+                print(f"  Segment: {p}")
+                inputs = processor(p, voice_preset="v2/en_speaker_6", return_tensors="pt").to(DEVICE)
+                with torch.no_grad():
+                    # do_sample=True allows variation even with identical prompts
+                    audio = model.generate(**inputs, do_sample=True, min_eos_p=0.05).cpu().numpy().squeeze()
+                    full_audio.append(audio)
+            
+            combined = np.concatenate(full_audio)
+            scipy.io.wavfile.write(fname, rate=sample_rate, data=combined)
         
         del model; del processor; flush()
 
