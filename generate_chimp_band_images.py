@@ -7,6 +7,7 @@ import PIL.Image
 if not hasattr(PIL.Image, "ANTIALIAS"): PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
 from diffusers import StableDiffusionXLPipeline, UNet2DConditionModel, EulerDiscreteScheduler
 from huggingface_hub import hf_hub_download
+from safetensors.torch import load_file
 
 # --- Configuration ---
 OUTPUT_DIR = "assets_chimp_band_64"
@@ -16,7 +17,6 @@ if torch.cuda.is_available(): DEVICE = "cuda"
 else: DEVICE = "cpu"
 
 # --- Scene Definitions ---
-# Pool of instruments to mix with Bongos
 RIDICULOUS_INSTRUMENTS = [
     "banjo", "cowbell", "bass guitar", "kazoo", "tuba", 
     "accordion", "triangle", "keytar", "theremin", "electric violin",
@@ -25,7 +25,7 @@ RIDICULOUS_INSTRUMENTS = [
 
 SCENES = []
 
-# Generate 64 Scenes
+# Generate 64 Scenes matching assets script logic
 for i in range(64):
     sid = f"{i+1:02d}_scene"
     
@@ -56,25 +56,19 @@ def flush():
     if torch.cuda.is_available(): torch.cuda.empty_cache()
 
 def generate_images():
-    print(f"--- Generating 64 Images (SDXL Lightning) ---")
+    print(f"--- Generating 64 Images (SDXL Lightning, 8 steps) ---")
     base = "stabilityai/stable-diffusion-xl-base-1.0"
     repo = "ByteDance/SDXL-Lightning"
     ckpt = "sdxl_lightning_4step_unet.safetensors"
 
     try:
-        from diffusers import StableDiffusionXLPipeline, UNet2DConditionModel, EulerDiscreteScheduler
-        from huggingface_hub import hf_hub_download
-        from safetensors.torch import load_file
-
-        # Load UNet
+        # Load UNet via safetensors
         print(f"Loading UNet from {repo}...")
         unet = UNet2DConditionModel.from_config(base, subfolder="unet").to(DEVICE, torch.float16)
         unet.load_state_dict(load_file(hf_hub_download(repo, ckpt), device=str(DEVICE)))
 
         # Load Pipeline
         pipe = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, torch_dtype=torch.float16, variant="fp16").to(DEVICE)
-        
-        # Ensure scheduler uses trailing timesteps
         pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
 
         if DEVICE == "cuda": 
@@ -86,7 +80,8 @@ def generate_images():
             
             print(f"Generating image: {scene['id']} ({scene['description']})")
             
-            prompt = f"{scene['visual']}, only chimps and animals, no humans, weird exotic creatures, studio lighting, high quality"
+            # Final prompt reinforcement
+            prompt = f"{scene['visual']}, only chimps and animals, no humans, weird exotic creatures, studio lighting, 8k photorealistic"
             
             pipe(
                 prompt=prompt, 
