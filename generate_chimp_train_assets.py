@@ -179,7 +179,10 @@ def generate_images():
             if os.path.exists(fname): continue
             
             print(f"Generating image: {scene['id']}")
-            prompt = scene['visual']
+            
+            # Refine prompt to exclude humans and specify animal world
+            prompt = scene['visual'].replace("Vendors", "Chimp vendors").replace("city", "city of animals")
+            prompt = f"{prompt}, only animals, no humans, chimps and exotic creatures, photorealistic, 8k"
             
             # SDXL Lightning specific settings: 8 steps, 0 guidance
             pipe(

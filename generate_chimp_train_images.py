@@ -62,12 +62,13 @@ def flush():
     if torch.cuda.is_available(): torch.cuda.empty_cache()
 
 def generate_images():
-    print("--- Generating Images (SDXL Lightning, 4 steps) ---")
+    print("--- Generating Images (SDXL Lightning, 8 steps) ---")
     base = "stabilityai/stable-diffusion-xl-base-1.0"
     repo = "ByteDance/SDXL-Lightning"
     ckpt = "sdxl_lightning_4step_unet.safetensors"
 
     try:
+        # Load UNet
         from diffusers import StableDiffusionXLPipeline, UNet2DConditionModel, EulerDiscreteScheduler
         from huggingface_hub import hf_hub_download
         from safetensors.torch import load_file
@@ -91,7 +92,10 @@ def generate_images():
             if os.path.exists(fname): continue
             
             print(f"Generating image: {scene['id']}")
-            prompt = scene['visual']
+            
+            # Refine prompt to exclude humans and specify animal world
+            prompt = scene['visual'].replace("Vendors", "Chimp vendors").replace("city", "city of animals")
+            prompt = f"{prompt}, only animals, no humans, chimps and exotic creatures, photorealistic, 8k"
             
             # SDXL Lightning specific settings: 8 steps, 0 guidance
             pipe(

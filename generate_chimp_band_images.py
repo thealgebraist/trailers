@@ -86,8 +86,10 @@ def generate_images():
             
             print(f"Generating image: {scene['id']} ({scene['description']})")
             
+            prompt = f"{scene['visual']}, only chimps and animals, no humans, weird exotic creatures, studio lighting, high quality"
+            
             pipe(
-                prompt=scene['visual'], 
+                prompt=prompt, 
                 guidance_scale=0.0, 
                 num_inference_steps=8, 
                 generator=torch.Generator(device="cpu").manual_seed(100 + int(scene['id'].split('_')[0]))
