@@ -93,7 +93,7 @@ def flush():
 
 def generate_images():
     print("\n--- Generating Images (flux.1 schnell) ---")
-    model_id = "/workspace/.hf_home/hub/models--black-forest-labs--FLUX.1-schnell/snapshots/741f7c3ce8b383c54771c7003378a50191e9efe9"
+    model_id = "/workspace/.hf_home/hub/models--PrunaAI--FLUX.1-schnell-8bit/snapshots/51f676f44a2720848b5451bab4459a538367bdff"
     try:
         pipe = FluxPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16)
         pipe.to(DEVICE)
