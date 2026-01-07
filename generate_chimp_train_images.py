@@ -76,6 +76,9 @@ def generate_images():
         # Load Pipeline
         pipe = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, dtype=torch.float16, variant="fp16").to(DEVICE)
         
+        # Follow deprecation warning: Upcast VAE to float32
+        pipe.vae.to(torch.float32)
+
         # Ensure scheduler uses trailing timesteps
         pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
 

@@ -61,6 +61,9 @@ def generate_branding_images():
         print(f"Loading Base SDXL Pipeline for high-iteration quality...")
         pipe = StableDiffusionXLPipeline.from_pretrained(base, torch_dtype=DTYPE, variant="fp16").to(DEVICE)
         
+        # Follow deprecation warning: Upcast VAE to float32
+        pipe.vae.to(torch.float32)
+        
         # Standard scheduler for high step counts
         pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
 

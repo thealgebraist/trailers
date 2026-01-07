@@ -159,6 +159,10 @@ def generate_images():
 
     try:
         pipe = StableDiffusionXLPipeline.from_pretrained(base, torch_dtype=torch.float16, variant="fp16").to(DEVICE)
+        
+        # Follow deprecation warning: Upcast VAE to float32
+        pipe.vae.to(torch.float32)
+
         pipe.load_lora_weights(lora_repo)
         
         if DEVICE == "cuda": pipe.enable_model_cpu_offload() 
