@@ -216,7 +216,7 @@ def generate_images():
             from diffusers import FluxPipeline
             import torch as _torch
             print('Attempting to load Flux.2 via FluxPipeline (vanilla PyTorch)...')
-            flux_model = 'black-forest-labs/FLUX.2'
+            flux_model = 'black-forest-labs/FLUX.2-dev'
             torch_dtype = _torch.float16 if DEVICE != 'cpu' else _torch.float32
             pipe = FluxPipeline.from_pretrained(flux_model, torch_dtype=torch_dtype)
             # move to device using vanilla .to
