@@ -210,7 +210,21 @@ def apply_audio_effects(file_path):
 def generate_images():
     print('--- Generating Images (SDXL Lightning) ---')
     try:
-        pipe = load_sdxl_lightning()
+        # Prefer FLUX.1 (flux1) if available; fallback to SDXL Lightning if not.
+        try:
+            from diffusers import FluxPipeline
+            print('Attempting to load FluxPipeline (FLUX.1)...')
+            flux_model = 'black-forest-labs/FLUX.1-schnell'
+            pipe = FluxPipeline.from_pretrained(flux_model)
+            if DEVICE == 'cuda':
+                pipe.to('cuda')
+            else:
+                pipe.to('cpu')
+            print('Loaded FluxPipeline')
+        except Exception as e_flux:
+            print('FluxPipeline load failed, falling back to SDXL Lightning:', e_flux)
+            pipe = load_sdxl_lightning()
+
         for i in range(1, NUM + 1):
             # Build image prompts from the corresponding voice prompt so visuals match audio
             raw_voice = VOICE_PROMPTS[i - 1]
@@ -228,10 +242,51 @@ def generate_images():
                 print(f'Generating during image {i:02d} from voice: "{voice_clean[:60]}..."')
                 img = generate_image(pipe, prompt, steps=16, guidance=1.2, seed=3000 + i)
                 img.save(during_fname)
-        del pipe
+        try:
+            del pipe
+        except Exception:
+            pass
         flush()
     except Exception as e:
         print('Image generation failed:', e)
+        # Fallback: create simple placeholder images so downstream assembly can continue offline
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            for i in range(1, NUM + 1):
+                before_fname = f"{OUTPUT_DIR}/images/{i:02d}_before.png"
+                during_fname = f"{OUTPUT_DIR}/images/{i:02d}_during.png"
+                for fname, label in ((before_fname, f"Before {i:02d}"), (during_fname, f"During {i:02d}")):
+                    if not os.path.exists(fname):
+                        img = Image.new('RGB', (1280, 720), color=(40, 40, 40))
+                        d = ImageDraw.Draw(img)
+                        try:
+                            fnt = ImageFont.load_default()
+                        except Exception:
+                            fnt = None
+                        d.text((20, 20), label, fill=(255, 255, 255), font=fnt)
+                        img.save(fname)
+            print('Wrote placeholder images for offline use.')
+        except Exception as e2:
+            print('Failed to write placeholder images:', e2)
+        # Fallback: create simple placeholder images so downstream assembly can continue offline
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            for i in range(1, NUM + 1):
+                before_fname = f"{OUTPUT_DIR}/images/{i:02d}_before.png"
+                during_fname = f"{OUTPUT_DIR}/images/{i:02d}_during.png"
+                for fname, label in ((before_fname, f"Before {i:02d}"), (during_fname, f"During {i:02d}")):
+                    if not os.path.exists(fname):
+                        img = Image.new('RGB', (1280, 720), color=(40, 40, 40))
+                        d = ImageDraw.Draw(img)
+                        try:
+                            fnt = ImageFont.load_default()
+                        except Exception:
+                            fnt = None
+                        d.text((20, 20), label, fill=(255, 255, 255), font=fnt)
+                        img.save(fname)
+            print('Wrote placeholder images for offline use.')
+        except Exception as e2:
+            print('Failed to write placeholder images:', e2)
 
 
 def generate_voice():
