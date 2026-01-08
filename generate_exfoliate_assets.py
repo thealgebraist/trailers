@@ -211,42 +211,9 @@ def generate_images():
     print('--- Generating Images (SDXL Lightning) ---')
     try:
         # Prefer FLUX.1 (flux1) if available; fallback to SDXL Lightning if not.
-        try:
-            from diffusers import FluxPipeline
-            print('Attempting to load FluxPipeline (FLUX.1)...')
-            flux_candidates = [
-                'black-forest-labs/FLUX.1-schnell',
-                'PrunaAI/FLUX.1-schnell-8bit',
-                'dhairyashil/FLUX.1-schnell-mflux-8bit'
-            ]
-            pipe = None
-            last_exc = None
-            for flux_model in flux_candidates:
-                try:
-                    print(f'Trying Flux model: {flux_model}')
-                    pipe = FluxPipeline.from_pretrained(flux_model)
-                    print(f'Loaded FluxPipeline from {flux_model}')
-                    break
-                except Exception as e_try:
-                    print(f'Flux model {flux_model} failed: {e_try}')
-                    last_exc = e_try
-            if pipe is None:
-                raise last_exc
-
-            if DEVICE == 'cuda':
-                try:
-                    pipe.to('cuda')
-                except RuntimeError as e_cuda:
-                    if 'out of memory' in str(e_cuda).lower():
-                        print('CUDA out of memory when moving Flux pipeline to GPU; falling back to CPU:', e_cuda)
-                        pipe.to('cpu')
-                    else:
-                        raise
-            else:
-                pipe.to('cpu')
-        except Exception as e_flux:
-            print('FluxPipeline load failed, falling back to SDXL Lightning:', e_flux)
-            pipe = load_sdxl_lightning()
+        # Force using SDXL Lightning pipeline for images (no Flux)
+        print('Using SDXL Lightning pipeline for image generation (forced).')
+        pipe = load_sdxl_lightning()
 
         for i in range(1, NUM + 1):
             # Build image prompts from the corresponding voice prompt so visuals match audio
