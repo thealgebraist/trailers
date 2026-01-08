@@ -36,7 +36,12 @@ def load_sdxl_lightning(base="stabilityai/stable-diffusion-xl-base-1.0",
         if os.path.isdir(local_candidate) and os.path.exists(os.path.join(local_candidate, "config.json")):
             base_to_use = local_candidate
 
-    pipe = StableDiffusionXLPipeline.from_pretrained(base_to_use, unet=unet, torch_dtype=dtype, variant="fp16").to(device)
+    # Load pipeline with dtype/variant matching the device to avoid dtype mismatches
+    if dtype == torch.float16:
+        pipe = StableDiffusionXLPipeline.from_pretrained(base_to_use, unet=unet, torch_dtype=dtype, variant="fp16").to(device)
+    else:
+        pipe = StableDiffusionXLPipeline.from_pretrained(base_to_use, unet=unet, torch_dtype=torch.float32).to(device)
+    # Ensure VAE uses float32 for stability on mixed setups
     pipe.vae.to(torch.float32)
     pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
     

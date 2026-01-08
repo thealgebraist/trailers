@@ -225,12 +225,24 @@ def generate_images():
             if not os.path.exists(before_fname):
                 prompt = IMAGE_BEFORE_PROMPT.format(voice=voice_clean)
                 print(f'Generating before image {i:02d} from voice: "{voice_clean[:60]}..."')
-                img = generate_image(pipe, prompt, steps=8, guidance=0.0, seed=101 + i)
+                # sanitize and truncate prompt to avoid CLIP token length errors
+                def sanitize_and_truncate(p, max_words=70):
+                    p = p.replace('4 k', '4k')
+                    p = re.sub(r'style\s*:\s*flux\.?\s*1\s*full', 'style:flux.1', p, flags=re.I)
+                    p = re.sub(r'\s+', ' ', p).strip()
+                    words = p.split()
+                    if len(words) > max_words:
+                        p = ' '.join(words[:max_words])
+                    return p
+
+                sprompt = sanitize_and_truncate(prompt)
+                img = generate_image(pipe, sprompt, steps=8, guidance=0.0, seed=101 + i)
                 img.save(before_fname)
             if not os.path.exists(during_fname):
                 prompt = IMAGE_DURING_PROMPT.format(voice=voice_clean)
                 print(f'Generating during image {i:02d} from voice: "{voice_clean[:60]}..."')
-                img = generate_image(pipe, prompt, steps=8, guidance=0.0, seed=201 + i)
+                sprompt = sanitize_and_truncate(prompt)
+                img = generate_image(pipe, sprompt, steps=8, guidance=0.0, seed=201 + i)
                 img.save(during_fname)
         try:
             del pipe
@@ -340,11 +352,21 @@ def generate_voice():
             if os.path.exists(out_file):
                 continue
             print(f'Generating voice {i:02d}: "{txt[:60]}..."')
-            wavs = chat.infer([txt], use_decoder=True)
-            if wavs and len(wavs) > 0:
-                arr = np.array(wavs[0]).flatten()
-                scipy.io.wavfile.write(out_file, 24000, arr)
-                apply_audio_effects(out_file)
+            try:
+                wavs = chat.infer([txt], use_decoder=True)
+                if wavs and len(wavs) > 0:
+                    arr = np.array(wavs[0]).flatten()
+                    if arr.size <= 0:
+                        raise ValueError('empty waveform')
+                    scipy.io.wavfile.write(out_file, 24000, arr)
+                    apply_audio_effects(out_file)
+                else:
+                    raise ValueError('no wavs returned')
+            except Exception as e_wav:
+                print(f'ChatTTS failed for index {i}: {e_wav}; writing 1s silence fallback')
+                # write 1s silence at 24000Hz
+                sil = (np.zeros(24000, dtype=np.int16)).astype(np.int16)
+                scipy.io.wavfile.write(out_file, 24000, sil)
         del chat
         flush()
     except Exception as e:
@@ -394,7 +416,18 @@ def generate_music():
         if os.path.exists(filename):
             return
         print('Generating background music (theme_elevator)')
-        audio = pipe(prompt=MUSIC_PROMPT, negative_prompt='noise, harsh, vocals', num_inference_steps=100, audio_end_in_s=120.0).audios[0]
+        # clamp requested duration to model max length if available
+        requested = 120.0
+        max_len = getattr(pipe, 'max_audio_seconds', None)
+        if max_len is None:
+            # try common property name
+            max_len = getattr(getattr(pipe, 'config', {}), 'max_audio_seconds', None)
+        if max_len is None:
+            max_len = 47.5
+        end_s = min(requested, float(max_len))
+        if requested > end_s:
+            print(f'Requested {requested}s too long for model (max {max_len}s); using {end_s}s')
+        audio = pipe(prompt=MUSIC_PROMPT, negative_prompt='noise, harsh, vocals', num_inference_steps=100, audio_end_in_s=end_s).audios[0]
         scipy.io.wavfile.write(filename, rate=44100, data=audio.cpu().numpy().T)
         del pipe
         flush()
