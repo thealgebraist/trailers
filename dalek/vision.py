@@ -3,6 +3,7 @@ import os
 from diffusers import StableDiffusionXLPipeline, UNet2DConditionModel, EulerDiscreteScheduler
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
+
 from .core import get_device, get_dtype, flush
 
 def load_sdxl_lightning(base="stabilityai/stable-diffusion-xl-base-1.0", 
