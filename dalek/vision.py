@@ -14,7 +14,17 @@ def load_sdxl_lightning(base="stabilityai/stable-diffusion-xl-base-1.0",
     print(f"Loading SDXL Lightning UNet from {repo}...")
     unet_config = UNet2DConditionModel.from_config(base, subfolder="unet")
     unet = UNet2DConditionModel.from_config(unet_config).to(device, dtype)
-    unet.load_state_dict(load_file(hf_hub_download(repo, ckpt), device=str(device)))
+    # Support local repo paths: if `repo` is a directory containing the checkpoint, load it directly.
+    ckpt_path = None
+    try:
+        candidate = os.path.join(repo, ckpt)
+        if os.path.isdir(repo) and os.path.exists(candidate):
+            ckpt_path = candidate
+    except Exception:
+        ckpt_path = None
+    if ckpt_path is None:
+        ckpt_path = hf_hub_download(repo, ckpt)
+    unet.load_state_dict(load_file(ckpt_path, device=str(device)))
 
     pipe = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, torch_dtype=dtype, variant="fp16").to(device)
     pipe.vae.to(torch.float32)
