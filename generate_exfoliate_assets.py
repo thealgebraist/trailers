@@ -365,9 +365,19 @@ def generate_sfx():
             if os.path.exists(fname):
                 continue
             print(f'Generating SFX {i:02d}')
-            prompt = "Low, coarse rasp like a cheese grater or metal file scraping wood: deep, gritty, low-frequency rasp with minimal high-end squeal, 2.5s, high fidelity."
-            audio = pipe(prompt=prompt, negative_prompt=neg, num_inference_steps=80, audio_end_in_s=2.5).audios[0]
-            scipy.io.wavfile.write(fname, rate=44100, data=audio.cpu().numpy().T)
+            # Use a low-frequency manual saw-on-wood prompt to emphasize low-end rasp
+            prompt = "Manual hand saw scraping along wood (tree trunk): coarse low-frequency rasp and deep woody friction, subdued high-end, naturalistic, 6.0s, high fidelity."
+            audio = pipe(prompt=prompt, negative_prompt=neg, num_inference_steps=100, audio_end_in_s=6.0).audios[0]
+            data = audio.cpu().numpy().T
+            scipy.io.wavfile.write(fname, rate=44100, data=data)
+            # Post-process: apply stronger low-pass filter and gentle compression to emphasize low freq
+            try:
+                temp = fname.replace('.wav', '_lp.wav')
+                ff_af = "lowpass=f=800,acompressor=threshold=-12dB:ratio=3:makeup=3dB"
+                subprocess.run(["ffmpeg", "-y", "-i", fname, "-af", ff_af, "-ar", "44100", temp], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                os.replace(temp, fname)
+            except Exception as e_pp:
+                print('SFX postprocess failed:', e_pp)
         del pipe
         flush()
     except Exception as e:
