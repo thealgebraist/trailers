@@ -25,6 +25,9 @@ RIDICULOUS_INSTRUMENTS = [
 
 SCENES = []
 
+# Use a fixed seed for reproducible instrument selection
+random.seed(42)
+
 # Generate 64 Scenes matching assets script logic
 for i in range(64):
     sid = f"{i+1:02d}_scene"
