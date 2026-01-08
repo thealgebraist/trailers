@@ -28,19 +28,21 @@ if [ ! -d ".venv" ]; then
   python3 -m venv .venv
 fi
 . .venv/bin/activate
-python -m pip install --upgrade pip setuptools wheel
+uv pip install --upgrade pip setuptools wheel
+# ensure key packages
+uv pip install scipy diffusers transformers || true
 
 # Try to install Python packages; onnx/onnxruntime may fail to build on some platforms
 echo "Installing Python requirements (may skip onnx/onnxruntime if build fails)"
-if ! pip install -r requirements.txt; then
+if ! uv pip install -r requirements.txt; then
   echo "pip install -r requirements.txt failed; attempting to install core packages without onnx/onnxruntime"
-  pip install --no-deps -r requirements.txt || true
+  uv pip install --no-deps -r requirements.txt || true
   echo "Attempting onnx install"
-  if ! pip install onnx==1.16.0; then
+  if ! uv pip install onnx==1.16.0; then
     echo "onnx pip install failed; you can use system onnx/onnxruntime for C++"
   fi
   echo "Attempting onnxruntime install"
-  if ! pip install onnxruntime==1.18.0; then
+  if ! uv pip install onnxruntime==1.18.0; then
     echo "onnxruntime pip install failed; use system onnxruntime for C++"
   fi
 fi
