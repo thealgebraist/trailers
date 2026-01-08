@@ -214,8 +214,25 @@ def generate_images():
         try:
             from diffusers import FluxPipeline
             print('Attempting to load FluxPipeline (FLUX.1)...')
-            flux_model = 'black-forest-labs/FLUX.1-schnell'
-            pipe = FluxPipeline.from_pretrained(flux_model)
+            flux_candidates = [
+                'black-forest-labs/FLUX.1-schnell',
+                'PrunaAI/FLUX.1-schnell-8bit',
+                'dhairyashil/FLUX.1-schnell-mflux-8bit'
+            ]
+            pipe = None
+            last_exc = None
+            for flux_model in flux_candidates:
+                try:
+                    print(f'Trying Flux model: {flux_model}')
+                    pipe = FluxPipeline.from_pretrained(flux_model)
+                    print(f'Loaded FluxPipeline from {flux_model}')
+                    break
+                except Exception as e_try:
+                    print(f'Flux model {flux_model} failed: {e_try}')
+                    last_exc = e_try
+            if pipe is None:
+                raise last_exc
+
             if DEVICE == 'cuda':
                 try:
                     pipe.to('cuda')
@@ -227,7 +244,6 @@ def generate_images():
                         raise
             else:
                 pipe.to('cpu')
-            print('Loaded FluxPipeline')
         except Exception as e_flux:
             print('FluxPipeline load failed, falling back to SDXL Lightning:', e_flux)
             pipe = load_sdxl_lightning()
