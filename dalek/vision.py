@@ -26,7 +26,17 @@ def load_sdxl_lightning(base="stabilityai/stable-diffusion-xl-base-1.0",
         ckpt_path = hf_hub_download(repo, ckpt)
     unet.load_state_dict(load_file(ckpt_path, device=str(device)))
 
-    pipe = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, torch_dtype=dtype, variant="fp16").to(device)
+    # Load pipeline, prefer a local base directory if available (supports offline use)
+    base_to_use = base
+    if os.path.isdir(base) and os.path.exists(os.path.join(base, "config.json")):
+        base_to_use = base
+    else:
+        # check for a base model directory inside the provided repo path
+        local_candidate = os.path.join(repo, os.path.basename(base))
+        if os.path.isdir(local_candidate) and os.path.exists(os.path.join(local_candidate, "config.json")):
+            base_to_use = local_candidate
+
+    pipe = StableDiffusionXLPipeline.from_pretrained(base_to_use, unet=unet, torch_dtype=dtype, variant="fp16").to(device)
     pipe.vae.to(torch.float32)
     pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
     
