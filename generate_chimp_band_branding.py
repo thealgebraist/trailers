@@ -1,27 +1,13 @@
-import torch
 import os
-import gc
-import numpy as np
-import PIL.Image
-if not hasattr(PIL.Image, "ANTIALIAS"): PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
-from diffusers import StableDiffusionXLPipeline, EulerDiscreteScheduler
+from dalek.core import get_device, flush, ensure_dir
+from dalek.vision import load_sdxl_base, generate_image
 
 # --- Configuration ---
 OUTPUT_DIR = "assets_chimp_band_64"
-os.makedirs(f"{OUTPUT_DIR}/images", exist_ok=True)
+ensure_dir(f"{OUTPUT_DIR}/images")
 
-# Select device: mps for macOS, cuda for NVIDIA, else cpu
-if torch.backends.mps.is_available():
-    DEVICE = "mps"
-elif torch.cuda.is_available():
-    DEVICE = "cuda"
-else:
-    DEVICE = "cpu"
-
-# Determine dtype based on device
-DTYPE = torch.float16 if DEVICE != "cpu" else torch.float32
-
-print(f"Using device: {DEVICE} with {DTYPE}")
+DEVICE = get_device()
+print(f"Using device: {DEVICE}")
 
 # Branding and Story Completion Prompts for Bongo Band
 BRANDING_PROMPTS = [
@@ -43,49 +29,19 @@ BRANDING_PROMPTS = [
     }
 ]
 
-def flush():
-    gc.collect()
-    if torch.cuda.is_available(): torch.cuda.empty_cache()
-    if torch.backends.mps.is_available():
-        try: torch.mps.empty_cache()
-        except: pass
-
 def generate_branding_images():
     print("--- Generating Bongo Band Branding and End Images (SDXL Base, 128 steps) ---")
-    base = "stabilityai/stable-diffusion-xl-base-1.0"
-
     try:
-        # Load Pipeline (Base model for high-iteration quality)
-        print(f"Loading Base SDXL Pipeline for high-iteration quality...")
-        pipe = StableDiffusionXLPipeline.from_pretrained(base, torch_dtype=DTYPE, variant="fp16").to(DEVICE)
-        
-        # Follow deprecation warning: Upcast VAE to float32
-        pipe.vae.to(torch.float32)
-
-        # Standard scheduler for high step counts
-        pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
-
-        if DEVICE == "mps":
-            pipe.enable_attention_slicing()
-        
-        if DEVICE == "cuda": 
-            pipe.enable_model_cpu_offload() 
+        pipe = load_sdxl_base()
         
         for scene in BRANDING_PROMPTS:
             fname = f"{OUTPUT_DIR}/images/{scene['id']}.png"
-            
             print(f"Generating high-quality image: {scene['id']} (128 steps)")
             
-            # Final prompt reinforcement
             full_prompt = f"{scene['visual']}, only chimps and animals, no humans, weird exotic creatures, 8k photorealistic"
             
-            # High-quality settings: 128 steps, 7.5 guidance
-            pipe(
-                prompt=full_prompt, 
-                guidance_scale=7.5, 
-                num_inference_steps=128, 
-                generator=torch.Generator(device="cpu").manual_seed(2026 + int(scene['id'].split('_')[0]))
-            ).images[0].save(fname)
+            image = generate_image(pipe, full_prompt, steps=128, guidance=7.5, seed=2026 + int(scene['id'].split('_')[0]))
+            image.save(fname)
             
         del pipe; flush()
         print(f"Success! Bongo Band branding and end images generated in {OUTPUT_DIR}/images/")

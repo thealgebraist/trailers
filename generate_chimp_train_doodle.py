@@ -1,25 +1,23 @@
 import torch
 import scipy.io.wavfile
 import os
-import gc
 import subprocess
 import re
 import numpy as np
-import PIL.Image
-if not hasattr(PIL.Image, "ANTIALIAS"): PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
+from dalek.core import get_device, flush, ensure_dir
+from dalek.vision import load_sdxl_base, generate_image
 from diffusers import StableAudioPipeline, StableDiffusionXLPipeline
 import ChatTTS
 
 # --- Configuration ---
 OUTPUT_DIR = "assets_chimp_train_doodle"
-os.makedirs(f"{OUTPUT_DIR}/images", exist_ok=True)
-os.makedirs(f"{OUTPUT_DIR}/voice", exist_ok=True)
-os.makedirs(f"{OUTPUT_DIR}/sfx", exist_ok=True)
-os.makedirs(f"{OUTPUT_DIR}/music", exist_ok=True)
+ensure_dir(f"{OUTPUT_DIR}/images")
+ensure_dir(f"{OUTPUT_DIR}/voice")
+ensure_dir(f"{OUTPUT_DIR}/sfx")
+ensure_dir(f"{OUTPUT_DIR}/music")
 
-if torch.cuda.is_available(): DEVICE = "cuda"
-elif torch.backends.mps.is_available(): DEVICE = "mps"
-else: DEVICE = "cpu"
+DEVICE = get_device()
+DTYPE = torch.float16 if DEVICE != "cpu" else torch.float32
 
 # --- Narrative & Visual Data (32 Scenes) ---
 VO_SCRIPTS = [
@@ -105,85 +103,50 @@ MUSIC_THEMES = [
     { "id": "theme_fun", "prompt": "Upbeat, playful orchestral score with jungle percussion and cheerful melodies. High quality." }
 ]
 
-def flush():
-    gc.collect()
-    if torch.cuda.is_available(): torch.cuda.empty_cache()
-
 def apply_trailer_voice_effect(file_path):
     temp_path = file_path.replace(".wav", "_temp.wav")
-    # Voice effect: subtle compression and warmth
     filter_complex = "lowshelf=g=3:f=100,acompressor=threshold=-15dB:ratio=3:makeup=5dB"
     cmd = ["ffmpeg", "-y", "-i", file_path, "-af", filter_complex, temp_path]
     try: 
         subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         os.replace(temp_path, file_path)
-    except Exception as e: 
-        pass
+    except Exception as e: pass
 
 def generate_voice_chattts():
-    """Generate 32 separate voice lines using ChatTTS."""
     print("--- Generating 32 ChatTTS voice lines ---")
-    
     try:
         chat = ChatTTS.Chat()
         chat.load(compile=False)
-        
         for i, scene in enumerate(SCENES):
-            txt = scene['voice_prompt']
-            # STRICT SANITIZATION to avoid narrow() error and invalid chars
-            txt = re.sub(r'[^a-zA-Z0-9,.?!\' ]', ' ', txt)
-            txt = txt.strip()
-            
+            txt = re.sub(r'[^a-zA-Z0-9,.?!\' ]', ' ', scene['voice_prompt']).strip()
             out_file = f"{OUTPUT_DIR}/voice/voice_{i+1:02d}.wav"
             if os.path.exists(out_file): continue
-                
             print(f"Generating voice {i+1}/32: {txt[:50]}...")
-            
-            try:
-                wavs = chat.infer([txt], use_decoder=True)
-                if wavs and len(wavs[0]) > 0:
-                    audio_array = np.array(wavs[0]).flatten()
-                    if audio_array.size > 0:
-                        scipy.io.wavfile.write(out_file, 24000, audio_array)
-                        apply_trailer_voice_effect(out_file)
-            except Exception as e:
-                print(f"Error for segment {i+1}: {e}")
-            
-    except Exception as e:
-        print(f"ChatTTS failed: {e}")
+            wavs = chat.infer([txt], use_decoder=True)
+            if wavs and len(wavs[0]) > 0:
+                audio_array = np.array(wavs[0]).flatten()
+                scipy.io.wavfile.write(out_file, 24000, audio_array)
+                apply_trailer_voice_effect(out_file)
+    except Exception as e: print(f"ChatTTS failed: {e}")
 
 def generate_images():
     print("--- Generating Doodle Images (SDXL + Doodle LoRA) ---")
     base = "stabilityai/stable-diffusion-xl-base-1.0"
     lora_repo = "artificialguybr/doodle-redmond-doodle-hand-drawing-style-lora-for-sd-xl"
-
     try:
-        pipe = StableDiffusionXLPipeline.from_pretrained(base, torch_dtype=torch.float16, variant="fp16").to(DEVICE)
-        
-        # Follow deprecation warning: Upcast VAE to float32
+        pipe = StableDiffusionXLPipeline.from_pretrained(base, torch_dtype=DTYPE, variant="fp16").to(DEVICE)
         pipe.vae.to(torch.float32)
-
         pipe.load_lora_weights(lora_repo)
-        
         if DEVICE == "cuda": pipe.enable_model_cpu_offload() 
-        
-        for scene in SCENES:
+        for i, scene in enumerate(SCENES):
             fname = f"{OUTPUT_DIR}/images/{scene['id']}.png"
             if os.path.exists(fname): continue
-            
             print(f"Generating image: {scene['id']}")
-            # Trigger words: "doodle style", "hand drawn doodle"
             prompt = f"doodle style, hand drawn doodle, {scene['visual']}, minimalist, white background, simple sharp lines"
-            
-            pipe(
-                prompt=prompt, 
-                num_inference_steps=30, 
-                generator=torch.Generator(device="cpu").manual_seed(101 + i)
-            ).images[0].save(fname)
-            
+            image = pipe(prompt=prompt, num_inference_steps=30, generator=torch.Generator(device="cpu").manual_seed(101 + i)).images[0]
+            image.save(fname)
         del pipe; flush()
-    except Exception as e:
-        print(f"Image generation failed: {e}")
+    except Exception as e: print(f"Image generation failed: {e}")
 
 def generate_music():
     print("\n--- Generating Music (Stable Audio Open) ---")
@@ -192,27 +155,18 @@ def generate_music():
         pipe = StableAudioPipeline.from_pretrained(model_id, torch_dtype=torch.float32)
         if DEVICE == "cuda": pipe.enable_model_cpu_offload()
         else: pipe.to(DEVICE)
-        
         for theme in MUSIC_THEMES:
             filename = f"{OUTPUT_DIR}/music/{theme['id']}.wav"
             if os.path.exists(filename): continue
             print(f"Generating Music: {theme['id']}")
-            audio = pipe(
-                prompt=theme['prompt'], 
-                audio_end_in_s=120.0
-            ).audios[0]
+            audio = pipe(prompt=theme['prompt'], audio_end_in_s=120.0).audios[0]
             scipy.io.wavfile.write(filename, rate=44100, data=audio.cpu().numpy().T)
         del pipe; flush()
-    except Exception as e: 
-        print(f"Music failed: {e}")
+    except Exception as e: print(f"Music failed: {e}")
 
 if __name__ == "__main__":
     import sys
-    # Handle optional flags
     if "voice" in sys.argv: generate_voice_chattts(); sys.exit(0)
     if "images" in sys.argv: generate_images(); sys.exit(0)
     if "music" in sys.argv: generate_music(); sys.exit(0)
-    
-    generate_images()
-    generate_voice_chattts()
-    generate_music()
+    generate_images(); generate_voice_chattts(); generate_music()

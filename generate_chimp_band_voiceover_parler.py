@@ -1,20 +1,15 @@
 import torch
 import numpy as np
-import soundfile as sf
 import os
-import gc
 import random
-from transformers import AutoTokenizer
-from parler_tts import ParlerTTSForConditionalGeneration
+from dalek.core import get_device, flush, ensure_dir
+from dalek.audio import load_parler, generate_parler_audio, save_audio
 
 # --- Configuration ---
 OUTPUT_DIR = "assets_chimp_band_64"
-os.makedirs(f"{OUTPUT_DIR}/voice", exist_ok=True)
+ensure_dir(f"{OUTPUT_DIR}/voice")
 
-if torch.backends.mps.is_available(): DEVICE = "mps"
-elif torch.cuda.is_available(): DEVICE = "cuda"
-else: DEVICE = "cpu"
-
+DEVICE = get_device()
 print(f"Using device: {DEVICE}")
 
 # Mirror the instrument list from generate_chimp_band_images.py
@@ -51,7 +46,6 @@ PERSONAS = [
 
 def generate_narrative(persona, scenes_subset, part_name):
     """Generates a long-form prompt for Parler based on persona and actual instruments."""
-    # List unique instruments in this subset (excluding bongos which are everywhere)
     instruments = []
     for s in scenes_subset:
         for inst in s:
@@ -80,61 +74,12 @@ def generate_narrative(persona, scenes_subset, part_name):
     }
     
     base_text = prompts.get(persona, prompts["The Enthusiast"])
-    # Extend the text to ensure it reaches ~150 words to fill ~60s
     filler = " The rhythm carries us deeper into the jungle of sound. Every beat of the bongos is a testament to the primal joy of creation. The chimps don't need a map; they have the melody. They don't need a reason; they have the rhythm. Onward we go, through the kazoos and the tubas, towards the heart of the frenzy. Happy chimps, happy world, happy music."
-    return (base_text + filler * 3)[:800] # Cap to sensible length
+    return (base_text + filler * 3)[:800]
 
 def generate_parler_voiceover_variations():
     print(f"--- Generating 16 Variations of 180s Voiceover (Mirrored to Image Prompts) ---")
-    repo_id = "parler-tts/parler-tts-mini-v1"
-    model = ParlerTTSForConditionalGeneration.from_pretrained(repo_id).to(DEVICE)
-    tokenizer = AutoTokenizer.from_pretrained(repo_id)
+    model, tokenizer = load_parler()
     sample_rate = model.config.sampling_rate
 
     description = ("A male speaker with a deep, calm voice delivers his words "
-                   "extremely slowly with long pauses, in a very quiet room "
-                   "with very clear audio quality.")
-
-    # Split 64 scenes into three parts (~21 scenes each for 60s)
-    parts = [SCENE_DATA[0:21], SCENE_DATA[21:42], SCENE_DATA[42:64]]
-    part_names = ["first movement", "middle section", "grand finale"]
-
-    try:
-        for v_idx, persona in enumerate(PERSONAS):
-            var_name = f"v{v_idx+1}_{persona.lower().replace(' ', '_')}"
-            print(f"\n--- Variation {v_idx+1}/16: {persona} ---")
-            var_dir = f"{OUTPUT_DIR}/voice/{var_name}"
-            os.makedirs(var_dir, exist_ok=True)
-            
-            full_audio_segments = []
-            for p_idx, (subset, p_name) in enumerate(zip(parts, part_names)):
-                out_file = f"{var_dir}/part_{p_idx+1}.wav"
-                if os.path.exists(out_file):
-                    audio_data, _ = sf.read(out_file)
-                    full_audio_segments.append(audio_data)
-                    continue
-
-                text = generate_narrative(persona, subset, p_name)
-                print(f"Generating {var_name} part {p_idx+1}/3...")
-                input_ids = tokenizer(description, return_tensors="pt").input_ids.to(DEVICE)
-                prompt_input_ids = tokenizer(text, return_tensors="pt").input_ids.to(DEVICE)
-                generation = model.generate(input_ids=input_ids, prompt_input_ids=prompt_input_ids)
-                audio_arr = generation.cpu().numpy().squeeze()
-                sf.write(out_file, audio_arr, sample_rate)
-                full_audio_segments.append(audio_arr)
-                flush()
-
-            master_path = f"{var_dir}/full_voiceover.wav"
-            combined = np.concatenate(full_audio_segments)
-            sf.write(master_path, combined, sample_rate)
-            print(f"Created master: {master_path}")
-
-    except Exception as e: print(f"Generation failed: {e}")
-    finally: del model; flush()
-
-if __name__ == "__main__":
-    generate_parler_voiceover_variations()
-
-
-if __name__ == "__main__":
-    generate_parler_voiceover_variations()

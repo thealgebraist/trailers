@@ -1,22 +1,15 @@
-import torch
 import os
-import gc
-import numpy as np
-import PIL.Image
-if not hasattr(PIL.Image, "ANTIALIAS"): PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
-from diffusers import StableDiffusionXLPipeline, UNet2DConditionModel, EulerDiscreteScheduler
-from huggingface_hub import hf_hub_download
-from safetensors.torch import load_file
+from dalek.core import get_device, flush, ensure_dir
+from dalek.vision import load_sdxl_lightning, generate_image
 
 # --- Configuration ---
 OUTPUT_DIR = "assets_chimp_train"
-os.makedirs(f"{OUTPUT_DIR}/images", exist_ok=True)
+ensure_dir(f"{OUTPUT_DIR}/images")
 
-if torch.cuda.is_available(): DEVICE = "cuda"
-else: DEVICE = "cpu"
+DEVICE = get_device()
+print(f"Using device: {DEVICE}")
 
 # Simplified, logical narrative prompts for 32 scenes
-# Focusing on the "same chimp" and "no humans"
 SCENE_PROMPTS = [
     "A lone chimp in a cozy jungle hut, sitting on a wooden stool, deep in thought, thinking about a glowing golden banana.",
     "Close-up of the same chimp's face, eyes closed, dreaming of a perfect banana.",
@@ -57,50 +50,20 @@ for i, prompt in enumerate(SCENE_PROMPTS):
     sid = f"{i+1:02d}_scene"
     SCENES.append({"id": sid, "visual": prompt})
 
-def flush():
-    gc.collect()
-    if torch.cuda.is_available(): torch.cuda.empty_cache()
-
 def generate_images():
     print("--- Generating Images (SDXL Lightning, 8 steps) ---")
-    base = "stabilityai/stable-diffusion-xl-base-1.0"
-    repo = "ByteDance/SDXL-Lightning"
-    ckpt = "sdxl_lightning_4step_unet.safetensors"
-
     try:
-        # Load UNet via safetensors
-        print(f"Loading UNet from {repo}...")
-        unet = UNet2DConditionModel.from_config(base, subfolder="unet").to(DEVICE, torch.float16)
-        unet.load_state_dict(load_file(hf_hub_download(repo, ckpt), device=str(DEVICE)))
-
-        # Load Pipeline
-        pipe = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, dtype=torch.float16, variant="fp16").to(DEVICE)
-        
-        # Follow deprecation warning: Upcast VAE to float32
-        pipe.vae.to(torch.float32)
-
-        # Ensure scheduler uses trailing timesteps
-        pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
-
-        if DEVICE == "cuda": 
-            pipe.enable_model_cpu_offload() 
+        pipe = load_sdxl_lightning()
         
         for scene in SCENES:
             fname = f"{OUTPUT_DIR}/images/{scene['id']}.png"
             if os.path.exists(fname): continue
             
             print(f"Generating image: {scene['id']}")
-            
-            # Final prompt reinforcement
             full_prompt = f"{scene['visual']}, minimalist style, cinematic lighting, no humans, only animals, 8k photorealistic"
             
-            # SDXL Lightning specific settings: 8 steps, 0 guidance
-            pipe(
-                prompt=full_prompt, 
-                guidance_scale=0.0, 
-                num_inference_steps=8, 
-                generator=torch.Generator(device="cpu").manual_seed(101 + int(scene['id'].split('_')[0]))
-            ).images[0].save(fname)
+            image = generate_image(pipe, full_prompt, steps=8, guidance=0.0, seed=101 + int(scene['id'].split('_')[0]))
+            image.save(fname)
             
         del pipe; flush()
     except Exception as e:

@@ -1,27 +1,23 @@
 import torch
 import scipy.io.wavfile
 import os
-import gc
 import subprocess
 import re
-import requests
 import numpy as np
-import PIL.Image
-if not hasattr(PIL.Image, "ANTIALIAS"): PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
+from dalek.core import get_device, flush, ensure_dir
+from dalek.vision import load_sdxl_lightning, generate_image
 from diffusers import StableAudioPipeline
 import ChatTTS
 
 # --- Configuration ---
 OUTPUT_DIR = "assets_chimp_train"
-os.makedirs(f"{OUTPUT_DIR}/images", exist_ok=True)
-os.makedirs(f"{OUTPUT_DIR}/voice", exist_ok=True)
-os.makedirs(f"{OUTPUT_DIR}/sfx", exist_ok=True)
-os.makedirs(f"{OUTPUT_DIR}/music", exist_ok=True)
+ensure_dir(f"{OUTPUT_DIR}/images")
+ensure_dir(f"{OUTPUT_DIR}/voice")
+ensure_dir(f"{OUTPUT_DIR}/sfx")
+ensure_dir(f"{OUTPUT_DIR}/music")
 
-if torch.cuda.is_available(): DEVICE = "cuda"
-else: DEVICE = "cpu"
-
-# ... (rest of imports and data)
+DEVICE = get_device()
+print(f"Using device: {DEVICE}")
 
 # --- Narrative & Visual Data ---
 VO_SCRIPTS = [
@@ -107,10 +103,6 @@ MUSIC_THEMES = [
     { "id": "theme_fun", "prompt": "Upbeat, playful orchestral score with jungle percussion and cheerful melodies. High quality." }
 ]
 
-def flush():
-    gc.collect()
-    if torch.cuda.is_available(): torch.cuda.empty_cache()
-
 def apply_trailer_voice_effect(file_path):
     temp_path = file_path.replace(".wav", "_temp.wav")
     filter_complex = "lowshelf=g=5:f=100,acompressor=threshold=-12dB:ratio=4:makeup=4dB"
@@ -118,80 +110,39 @@ def apply_trailer_voice_effect(file_path):
     try: 
         subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         os.replace(temp_path, file_path)
-    except Exception as e: 
-        print(f"Failed effect: {e}")
+    except Exception as e: print(f"Failed effect: {e}")
 
-def generate_voice_chattts():
-    """Generate 32 separate voice lines using ChatTTS."""
+def generate_voice():
     print("--- Generating 32 ChatTTS voice lines ---")
-    os.makedirs(f"{OUTPUT_DIR}/voice", exist_ok=True)
-    
     try:
         chat = ChatTTS.Chat()
         chat.load(compile=False)
-        
         for i, scene in enumerate(SCENES):
             txt = scene['voice_prompt']
             out_file = f"{OUTPUT_DIR}/voice/voice_{i+1:02d}.wav"
-            
-            if os.path.exists(out_file):
-                continue
-                
+            if os.path.exists(out_file): continue
             print(f"Generating voice {i+1}/32: {txt[:60]}...")
-            
             wavs = chat.infer([txt], use_decoder=True)
             if wavs:
                 audio_array = np.array(wavs[0]).flatten()
                 scipy.io.wavfile.write(out_file, 24000, audio_array)
                 apply_trailer_voice_effect(out_file)
-            
         del chat; flush()
-            
-    except Exception as e:
-        print(f"ChatTTS generation failed: {e}")
-
-def generate_voice():
-    generate_voice_chattts()
+    except Exception as e: print(f"ChatTTS generation failed: {e}")
 
 def generate_images():
     print("--- Generating Images (SDXL Lightning, 8 steps) ---")
-    from diffusers import StableDiffusionXLPipeline, UNet2DConditionModel, EulerDiscreteScheduler
-    from huggingface_hub import hf_hub_download
-    from safetensors.torch import load_file
-
-    base = "stabilityai/stable-diffusion-xl-base-1.0"
-    repo = "ByteDance/SDXL-Lightning"
-    ckpt = "sdxl_lightning_4step_unet.safetensors"
-
     try:
-        unet = UNet2DConditionModel.from_config(base, subfolder="unet").to(DEVICE, torch.float16)
-        unet.load_state_dict(load_file(hf_hub_download(repo, ckpt), device=str(DEVICE)))
-        pipe = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, dtype=torch.float16, variant="fp16").to(DEVICE)
-        
-        # Follow deprecation warning: Upcast VAE to float32
-        pipe.vae.to(torch.float32)
-
-        pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
-
-        if DEVICE == "cuda": pipe.enable_model_cpu_offload() 
-        
+        pipe = load_sdxl_lightning()
         for scene in SCENES:
             fname = f"{OUTPUT_DIR}/images/{scene['id']}.png"
             if os.path.exists(fname): continue
-            
             print(f"Generating image: {scene['id']}")
             prompt = f"{scene['visual']}, minimalist style, cinematic lighting, no humans, only animals, 8k photorealistic"
-            
-            pipe(
-                prompt=prompt, 
-                guidance_scale=0.0, 
-                num_inference_steps=8, 
-                generator=torch.Generator(device="cpu").manual_seed(101 + int(scene['id'].split('_')[0]))
-            ).images[0].save(fname)
-            
+            image = generate_image(pipe, prompt, steps=8, guidance=0.0, seed=101 + int(scene['id'].split('_')[0]))
+            image.save(fname)
         del pipe; flush()
-    except Exception as e:
-        print(f"Image generation failed: {e}")
+    except Exception as e: print(f"Image generation failed: {e}")
 
 def generate_audio():
     print("\n--- Generating Music & SFX (Stable Audio Open) ---")
@@ -200,34 +151,18 @@ def generate_audio():
         pipe = StableAudioPipeline.from_pretrained(model_id, dtype=torch.float32)
         if DEVICE == "cuda": pipe.enable_model_cpu_offload()
         else: pipe.to(DEVICE)
-        
         neg = "low quality, noise, distortion, artifacts, fillers, talking"
-        
         for theme in MUSIC_THEMES:
             filename = f"{OUTPUT_DIR}/music/{theme['id']}.wav"
             if os.path.exists(filename): continue
             print(f"Generating Music: {theme['id']}")
-            audio = pipe(
-                prompt=theme['prompt'], 
-                negative_prompt=neg, 
-                num_inference_steps=100, 
-                audio_end_in_s=120.0
-            ).audios[0]
+            audio = pipe(prompt=theme['prompt'], negative_prompt=neg, num_inference_steps=100, audio_end_in_s=120.0).audios[0]
             scipy.io.wavfile.write(filename, rate=44100, data=audio.cpu().numpy().T)
-            
         del pipe; flush()
-    except Exception as e: 
-        print(f"Audio generation failed: {e}")
+    except Exception as e: print(f"Audio generation failed: {e}")
 
 if __name__ == "__main__":
     import sys
-    if "voice" in sys.argv: 
-        generate_voice()
-        sys.exit(0)
-    if "images" in sys.argv:
-        generate_images()
-        sys.exit(0)
-    
-    generate_images()
-    generate_voice()
-    generate_audio()
+    if "voice" in sys.argv: generate_voice(); sys.exit(0)
+    if "images" in sys.argv: generate_images(); sys.exit(0)
+    generate_images(); generate_voice(); generate_audio()
