@@ -333,14 +333,19 @@ def generate_voice():
         ]
 
         def stretch_word(w):
-            # insert a weird drawn-out "-oh-" in the middle of the word
+            # insert a mild drawn-out "ooh" in the middle of the word (avoid hyphens)
             if not w or len(w) < 3:
                 return w
             i = len(w) // 2
-            return w[:i] + "-oh-" + w[i:]
+            return w[:i] + "ooh" + w[i:]
 
         for i in range(1, NUM + 1):
+            # sanitize base prompt: remove timing markers like ~4-6s and stray digits/tildes
             base = VOICE_PROMPTS[i - 1]
+            base = re.sub(r"~\d+-\d+s\.?", "", base)
+            base = re.sub(r"[~\d]+", "", base)
+            base = base.strip()
+
             rnd = random.Random(i)  # deterministic per index
             words = base.split()
             if len(words) > 2:
@@ -359,6 +364,10 @@ def generate_voice():
                 idx = (i - 1) % len(parts)
                 parts[idx] = stretch_word(parts[idx])
                 txt = " ".join(parts)
+
+            # final sanitization: remove remaining tildes, digits, or hyphens and collapse spaces
+            txt = re.sub(r"[~\d-]+", "", txt)
+            txt = re.sub(r"\s+", " ", txt).strip()
 
             out_file = f"{OUTPUT_DIR}/voice/voice_{i:02d}.wav"
             if os.path.exists(out_file):
