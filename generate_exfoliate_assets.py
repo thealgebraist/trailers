@@ -217,7 +217,14 @@ def generate_images():
             flux_model = 'black-forest-labs/FLUX.1-schnell'
             pipe = FluxPipeline.from_pretrained(flux_model)
             if DEVICE == 'cuda':
-                pipe.to('cuda')
+                try:
+                    pipe.to('cuda')
+                except RuntimeError as e_cuda:
+                    if 'out of memory' in str(e_cuda).lower():
+                        print('CUDA out of memory when moving Flux pipeline to GPU; falling back to CPU:', e_cuda)
+                        pipe.to('cpu')
+                    else:
+                        raise
             else:
                 pipe.to('cpu')
             print('Loaded FluxPipeline')
