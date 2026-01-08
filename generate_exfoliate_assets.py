@@ -211,9 +211,31 @@ def generate_images():
     print('--- Generating Images (SDXL Lightning) ---')
     try:
         # Prefer FLUX.1 (flux1) if available; fallback to SDXL Lightning if not.
-        # Force using SDXL Lightning pipeline for images (no Flux)
-        print('Using SDXL Lightning pipeline for image generation (forced).')
-        pipe = load_sdxl_lightning()
+        # Prefer FLUX.2 via a vanilla PyTorch loading approach; fallback to SDXL Lightning
+        try:
+            from diffusers import FluxPipeline
+            import torch as _torch
+            print('Attempting to load Flux.2 via FluxPipeline (vanilla PyTorch)...')
+            flux_model = 'black-forest-labs/FLUX.2'
+            torch_dtype = _torch.float16 if DEVICE != 'cpu' else _torch.float32
+            pipe = FluxPipeline.from_pretrained(flux_model, torch_dtype=torch_dtype)
+            # move to device using vanilla .to
+            dev = 'cuda' if DEVICE == 'cuda' else 'cpu'
+            try:
+                pipe.to(dev)
+            except Exception as e_dev:
+                print('Failed to move Flux pipeline to device with .to(), attempting individual components:', e_dev)
+                try:
+                    for attr in ('transformer', 'text_encoder', 'vae', 'unet'):
+                        m = getattr(pipe, attr, None)
+                        if m is not None:
+                            m.to(dev)
+                except Exception:
+                    pass
+            print('Loaded Flux.2 pipeline (vanilla)')
+        except Exception as e_flux2:
+            print('Flux.2 load failed, falling back to SDXL Lightning:', e_flux2)
+            pipe = load_sdxl_lightning()
 
         for i in range(1, NUM + 1):
             # Build image prompts from the corresponding voice prompt so visuals match audio
