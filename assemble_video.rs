@@ -40,7 +40,8 @@ fn main() {
     let n_scenes = config.scenes.len();
 
     // 2. Add Voiceover Input (Index n)
-    let vo_path = format!("{}/voice/voiceover_full.wav", assets_dir);
+    let vo_filename = if project_type == "chimp_train" { "voiceover_full_parler.wav" } else { "voiceover_full.wav" };
+    let vo_path = format!("{}/voice/{}", assets_dir, vo_filename);
     if std::path::Path::new(&vo_path).exists() {
         println!("  Found Voiceover: {}", vo_path);
         cmd.arg("-i").arg(&vo_path);
@@ -80,11 +81,11 @@ fn main() {
     // 5. Build Filter Complex
     let mut filter = String::new();
 
-    // Visual: Static Montage
+    // Visual: Static Montage with a slow zoom (Ken Burns)
     for i in 0..n_scenes {
         filter.push_str(&format!(
-            "[{}:v]scale=w={}:h={}:force_original_aspect_ratio=decrease,pad={}:{}:(ow-iw)/2:(oh-ih)/2,setsar=1[v{}];",
-            i, width, height, width, height, i
+            "[{}:v]scale=w=2*1280:h=2*720,zoompan=z='min(zoom+0.001,1.5)':d=125:x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':s=1280x720,setsar=1[v{}];",
+            i, i
         ));
     }
     for i in 0..n_scenes { filter.push_str(&format!("[v{}]", i)); }
@@ -94,7 +95,7 @@ fn main() {
     let mut mix_inputs = Vec::new();
 
     // Layer 1: VO
-    filter.push_str(&format!("[{}:a]aresample=44100,aformat=sample_fmts=s16:sample_rates=44100:channel_layouts=stereo,volume=1.2[vov];", vo_idx));
+    filter.push_str(&format!("[{}:a]aresample=44100,aformat=sample_fmts=s16:sample_rates=44100:channel_layouts=stereo,volume=1.5[vov];", vo_idx));
     mix_inputs.push("[vov]");
 
     // Layer 2: SFX
@@ -113,23 +114,29 @@ fn main() {
             filter.push_str(&format!("[{}:a]aloop=loop=-1:size=2e+09,aresample=44100,aformat=sample_fmts=s16:sample_rates=44100:channel_layouts=stereo[m_clip{}];", idx, i));
         }
         for i in 0..available_music.len() { filter.push_str(&format!("[m_clip{}]", i)); }
-        filter.push_str(&format!("amix=inputs={}:duration=longest:normalize=0,volume=0.5[music_layer];", available_music.len()));
+        filter.push_str(&format!("amix=inputs={}:duration=longest:normalize=0,volume=0.4[music_layer];", available_music.len()));
         mix_inputs.push("[music_layer]");
     }
 
     // Final Audio Mix
     let mix_str = mix_inputs.join("");
-    // FIXED: Corrected the format string placeholder and removed invalid space
     filter.push_str(&format!("{}amix=inputs={}:duration=longest:normalize=0[aout]", mix_str, mix_inputs.len()));
 
     cmd.arg("-filter_complex").arg(filter);
     cmd.arg("-map").arg("[vout]").arg("-map").arg("[aout]");
     cmd.arg("-t").arg(total_duration.to_string());
     
-    cmd.arg("-c:v").arg("mpeg2video").arg("-q:v").arg("2").arg("-b:v").arg("15000k");
-    cmd.arg("-c:a").arg("mp2").arg("-b:a").arg("384k");
-    cmd.arg("-pix_fmt").arg("yuv420p").arg("-r").arg(fps.to_string()).arg("-f").arg("mpeg");
+    if output_file.ends_with(".mp4") {
+        cmd.arg("-c:v").arg("libx264").arg("-preset").arg("slow").arg("-crf").arg("18");
+        cmd.arg("-c:a").arg("aac").arg("-b:a").arg("192k");
+        cmd.arg("-pix_fmt").arg("yuv420p");
+    } else {
+        cmd.arg("-c:v").arg("mpeg2video").arg("-q:v").arg("2").arg("-b:v").arg("15000k");
+        cmd.arg("-c:a").arg("mp2").arg("-b:a").arg("384k");
+        cmd.arg("-pix_fmt").arg("yuv420p").arg("-r").arg(fps.to_string()).arg("-f").arg("mpeg");
+    }
     cmd.arg(output_file);
+
 
     let status = cmd.status().expect("Failed to execute FFmpeg");
     if status.success() {

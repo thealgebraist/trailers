@@ -49,6 +49,19 @@ pub fn get_config(project: &str) -> ProjectConfig {
             scenes: vec!["01_kitchen_wide", "02_the_kettle_still", "03_hand_reaching", "04_filling_water", "05_closing_lid", "06_pushing_button", "07_the_wait_begins", "08_clock_close", "09_bubbles_forming", "10_steam_rising", "11_face_extreme_close", "12_kettle_shaking", "13_steam_cloud", "14_orchestra_peak_1", "15_the_almost_click", "16_the_fakeout", "17_the_quiet_return", "18_empty_cup", "19_arthur_sigh_wait", "20_re_pushing_button", "21_red_glow", "22_violent_boil", "23_steam_jet", "24_arthur_screaming", "25_kettle_levitating", "26_the_boiling_point", "27_final_crescendo", "28_the_pop", "29_title_card_kettle", "30_slogan_kettle", "31_coming_soon_kettle", "32_post_credits_kettle"],
             music_themes: vec!["theme_build_1", "theme_build_2", "theme_silence_bridge"],
         },
+        "chimp_train" => ProjectConfig {
+            name: "chimp_train".to_string(),
+            scene_duration: 5.0,
+            scenes: vec![
+                "00_studio_logo", "00_title_card",
+                "01_scene", "02_scene", "03_scene", "04_scene", "05_scene", "06_scene", "07_scene", "08_scene", "09_scene", "10_scene",
+                "11_scene", "12_scene", "13_scene", "14_scene", "15_scene", "16_scene", "17_scene", "18_scene", "19_scene", "20_scene",
+                "21_scene", "22_scene", "23_scene", "24_scene", "25_scene", "26_scene", "27_scene", "28_scene", "29_scene", "30_scene",
+                "31_scene", "32_scene",
+                "33_story_end_1", "34_story_end_2"
+            ],
+            music_themes: vec!["theme_fun"],
+        },
         _ => ProjectConfig {
             name: project.to_string(),
             scene_duration: 30.0,
