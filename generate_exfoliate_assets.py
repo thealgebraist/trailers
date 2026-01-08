@@ -225,12 +225,12 @@ def generate_images():
             if not os.path.exists(before_fname):
                 prompt = IMAGE_BEFORE_PROMPT.format(voice=voice_clean)
                 print(f'Generating before image {i:02d} from voice: "{voice_clean[:60]}..."')
-                img = generate_image(pipe, prompt, steps=32, guidance=1.0, seed=2000 + i)
+                img = generate_image(pipe, prompt, steps=8, guidance=0.0, seed=101 + i)
                 img.save(before_fname)
             if not os.path.exists(during_fname):
                 prompt = IMAGE_DURING_PROMPT.format(voice=voice_clean)
                 print(f'Generating during image {i:02d} from voice: "{voice_clean[:60]}..."')
-                img = generate_image(pipe, prompt, steps=16, guidance=1.2, seed=3000 + i)
+                img = generate_image(pipe, prompt, steps=8, guidance=0.0, seed=201 + i)
                 img.save(during_fname)
         try:
             del pipe
