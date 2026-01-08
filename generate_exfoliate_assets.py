@@ -310,7 +310,7 @@ def generate_sfx():
             if os.path.exists(fname):
                 continue
             print(f'Generating SFX {i:02d}')
-            prompt = SFX_PROMPTS[i-1]
+            prompt = "Low, coarse rasp like a cheese grater or metal file scraping wood: deep, gritty, low-frequency rasp with minimal high-end squeal, 2.5s, high fidelity."
             audio = pipe(prompt=prompt, negative_prompt=neg, num_inference_steps=80, audio_end_in_s=2.5).audios[0]
             scipy.io.wavfile.write(fname, rate=44100, data=audio.cpu().numpy().T)
         del pipe

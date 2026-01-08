@@ -30,7 +30,7 @@ fi
 . .venv/bin/activate
 uv pip install --upgrade pip setuptools wheel
 # ensure key packages
-uv pip install scipy diffusers transformers || true
+uv pip install scipy diffusers transformers accelerate || true
 
 # Try to install Python packages; onnx/onnxruntime may fail to build on some platforms
 echo "Installing Python requirements (may skip onnx/onnxruntime if build fails)"

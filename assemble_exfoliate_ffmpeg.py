@@ -173,8 +173,8 @@ def build_and_run():
 
     # Levels: voices normal, sfx loud, music quiet
     audio_prep += "[voices]volume=1.0[voicesv];"
-    audio_prep += "[sfxs]volume=2.0[sfxsv];"  # loud SFX
-    audio_prep += "[music]volume=0.15[musicv];"
+    audio_prep += "[sfxs]volume=1.2[sfxsv];"  # loud SFX
+    audio_prep += "[music]volume=0.08[musicv];"
 
     # Mix all three
     audio_prep += "[voicesv][sfxsv][musicv]amix=inputs=3:duration=first:normalize=0[aout]"
