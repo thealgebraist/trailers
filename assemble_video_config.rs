@@ -62,6 +62,15 @@ pub fn get_config(project: &str) -> ProjectConfig {
             ],
             music_themes: vec!["theme_fun"],
         },
+        "chimp_band_64" => ProjectConfig {
+            name: "chimp_band_64".to_string(),
+            scene_duration: 3.0,
+            scenes: (1..=64).map(|i| {
+                let s = format!("{:02}_scene", i);
+                Box::leak(s.into_boxed_str()) as &'static str
+            }).collect(),
+            music_themes: vec!["soundtrack_1", "soundtrack_2", "soundtrack_3", "soundtrack_4"],
+        },
         _ => ProjectConfig {
             name: project.to_string(),
             scene_duration: 30.0,

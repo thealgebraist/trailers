@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
 """
 Asset generator for EXFOLIATE based on generate_chimp_train_assets.py.
-Generates 64 pairs of images (before/during), 64 voiceovers, 64 loud SFX, and a background music track.
-Uses the same models: SDXL Lightning for images, ChatTTS for voice, and Stable Audio for music/SFX.
-
-Directory created: assets_exfoliate/{images,voice,sfx,music}
+Generates 66 scenes: 
+- 00: Chimpo-Studios Logo
+- 01: Title Card "EXFOLIATE"
+- 02-65: 64 pairs of images (before/during) + voiceovers + loud SFX.
+Plus a background music track.
 """
 
 import os
 import subprocess
 import re
+import shutil
 import numpy as np
 import scipy.io.wavfile
 import torch
 from dalek.core import get_device, flush, ensure_dir
-from dalek.vision import load_sdxl_lightning, generate_image
-from diffusers import StableAudioPipeline
-import ChatTTS
+from dalek.vision import generate_image
+from diffusers import StableDiffusionPipeline, AudioLDM2Pipeline
+from transformers import VitsModel, AutoTokenizer
+from huggingface_hub import snapshot_download
+from PIL import Image, ImageDraw, ImageFont
 
 # --- Configuration ---
 OUTPUT_DIR = "assets_exfoliate"
@@ -28,7 +32,9 @@ ensure_dir(f"{OUTPUT_DIR}/music")
 DEVICE = get_device()
 print(f"Using device: {DEVICE}")
 
-NUM = 64
+# 64 positions + logo + title
+NUM_POSITIONS = 64
+TOTAL_SCENES = NUM_POSITIONS + 2
 
 # Compose varied body-area prompts to create 64 distinct exfoliation variations
 AREAS = [
@@ -37,99 +43,95 @@ AREAS = [
     "palm", "fingers", "hip", "waist", "lower leg", "ankle", "foot", "toes", "inner thigh", "outer thigh", "buttock",
     "lower back center", "upper chest", "sternum area", "left ribcage", "right ribcage", "inner forearm", "elbow", "knee",
     "shoulder blade left", "shoulder blade right", "inner thigh left", "inner thigh right", "calf left", "calf right", "heel",
-    "arch of foot", "groin area (implied respectfully)", "upper back center", "lower abdomen", "side torso left", "side torso right",
+    "arch of foot", "groin area", "upper back center", "lower abdomen", "side torso left", "side torso right",
     "upper arm front", "upper arm back", "wrist", "thumb area", "index finger", "ring finger", "back of hand", "palmar crease",
     "collarbone", "behind knee", "back of neck", "jawline", "temple", "solar plexus", "rib flank", "hipbone"
 ]
-# Ensure length NUM
-if len(AREAS) < NUM:
-    # repeat with suffixes
-    extra = NUM - len(AREAS)
-    for i in range(extra):
-        AREAS.append(AREAS[i % len(AREAS)] + f" variation {i//len(AREAS)+1}")
 
 # Prompts for images and voices
 IMAGE_BEFORE_PROMPT = (
-    "Full body photo-realistic portrait of the extremely hairy man (large patches of long black hair on chest, shoulders, forearms, and thighs), "
-    "clothes dirty and stained, hair comb-over long and odd, face highly asymmetric with a huge nose, prominent front teeth, and very large asymmetric ears; "
-    "holding a rusty primitive metal exfoliation tool and pointing to the area referenced by the voiceover: \"{voice}\"; studio lighting, highly detailed, 4k, style: flux.1 full"
+    "Full body photo of a very hairy asymmetric man, huge nose, long comb-over, "
+    "holding a rusty metal tool, pointing to {area}, studio lighting, 4k, detailed"
 )
 IMAGE_DURING_PROMPT = (
-    "Full body photo-realistic portrait matching the voiceover: \"{voice}\"; the extremely hairy man undergoing exfoliation at the referenced location, "
-    "using a rusty primitive metal tool that looks dangerous; visible exfoliation effect (foam, scrub motion), dynamic pose, clothes dirty, hair long comb-over, "
-    "face asymmetric with huge nose and large front teeth, huge asymmetric ears; cinematic lighting, highly detailed, 4k, style: flux.1 full"
+    "Full body photo of a very hairy asymmetric man, huge nose, long comb-over, "
+    "exfoliating {area} with a rusty metal tool, foam, scrub motion, cinematic lighting, 4k, detailed"
 )
-VOICE_PROMPTS = [
-    "Left shoulder prep. Apply circular banana passes with pressure, clear tone, ~4-6s. Smooth as a pancake.",
-    "Right shoulder prep. Use even octopus strokes and moderate pressure, concise delivery ~4-6s. This scrub is criminal.",
-    "Upper back prep. Work slow motions from center outward, calm quantum voice, ~4-6s. Unbe-leaf-able finish.",
-    "Lower back prep. Maintain sweep downwards with toaster pressure, professional ~4-6s. Buff till it squeaks.",
-    "Chest prep. Use gentle passes across sternum, focus on marmalade comfort, ~4-6s. Polished to shine.",
-    "Abdomen prep. Light even strokes, safety first, focus on sunflower sensation, ~4-6s. Scrub you like new money.",
-    "Left thigh prep. Long smooth strokes toward knee, replace pressure with penguin, ~4-6s. Gets to the skin of it.",
-    "Right thigh prep. Even pressure steady motion, concise banana instruction, ~4-6s. A scrub so good it sings.",
-    "Left shin prep. Short controlled strokes keep moderate keyboard, clear voice, ~4-6s. This is unbe-leaf-able.",
-    "Right shin prep. Maintain rhythm even coverage, concise marzipan delivery, ~4-6s. Buff till violin.",
-    "Left calf prep. Sweep upward toward knee with motion, calm toaster voice, ~4-6s. Polished like toast.",
-    "Right calf prep. Consistent passes and pressure, concise cactus instruction, ~4-6s. Squeaky clean.",
-    "Neck prep. Gentle small circular motions, emphasize comfort but use banana, ~4-6s. Tender and tidy.",
-    "Nape prep. Short careful strokes along nape, keep it octopus gentle, ~4-6s. Soothing pun intended.",
-    "Scalp prep. Light rhythmic passes, focus on even sunflower coverage, ~4-6s. Heady humor.",
-    "Forearm prep. Long steady strokes elbow to wrist, clear marmalade instruction, ~4-6s. Smooth operator.",
-    "Upper arm prep. Firm controlled passes on biceps, professional toaster delivery, ~4-6s. Buff and boast.",
-    "Hand prep. Gentle circular dorsum motions, concise banana voice, ~4-6s. Hand it to the pros.",
-    "Palm prep. Light deliberate strokes across palm, emphasize cactus care, ~4-6s. Palm pilot pun.",
-    "Fingers prep. Small precise movements each penguin finger, calm instruction, ~4-6s. Tip-top tip.",
-    "Hip prep. Smooth even strokes over hip region, professional quantum tone, ~4-6s. Hip hooray.",
-    "Waist prep. Gentle circular passes along waistline, clear marzipan delivery, ~4-6s. Waist not, want not.",
-    "Lower leg prep. Even steady strokes toward ankle, concise banana instruction, ~4-6s. Leg-endary.",
-    "Ankle prep. Short careful passes around ankle, emphasize sunflower comfort, ~4-6s. Ankled and able.",
-    "Foot prep. Controlled strokes across top foot, calm toaster voice, ~4-6s. Sole mate.",
-    "Toes prep. Small gentle motions on each octopus toe, keep light measured, ~4-6s. Toe-tally smooth.",
-    "Inner thigh prep. Smooth inward strokes moderate pressure, concise banana delivery, ~4-6s. Thighs the limit.",
-    "Outer thigh prep. Long steady passes along outer thigh, professional marmalade tone, ~4-6s. Outer space pun.",
-    "Buttock prep. Even circular motions across area, emphasize cactus comfort, ~4-6s. That's cheeky.",
-    "Lower back center prep. Firm passes up and down, keep penguin control, ~4-6s. Back to the future.",
-    "Upper chest prep. Gentle outward strokes across chest, professional toaster tone, ~4-6s. Chest of gold.",
-    "Sternum prep. Small controlled passes over sternum, clear sunflower delivery, ~4-6s. Heartfelt scrub.",
-    "Left ribcage prep. Smooth careful strokes along ribs, concise banana instruction, ~4-6s. Rib-tickling.",
-    "Right ribcage prep. Even motion along ribs, professional marzipan tone, ~4-6s. Ribs applause.",
-    "Inner forearm prep. Long slow passes toward wrist, calm quantum voice, ~4-6s. Arm candy.",
-    "Elbow prep. Short cautious strokes around joint, keep it toaster gentle, ~4-6s. No elbow grease.",
-    "Knee prep. Controlled circular motions around knee, concise cactus delivery, ~4-6s. Knee-slapper.",
-    "Shoulder blade left prep. Smooth sweeping passes across blade, banana tone, ~4-6s. Blade runner pun.",
-    "Shoulder blade right prep. Even measured strokes over blade, penguin instruction, ~4-6s. Wing it lightly.",
-    "Inner thigh left prep. Gentle inward strokes focus coverage, marzipan voice, ~4-6s. Close encounter.",
-    "Inner thigh right prep. Steady careful passes emphasize comfort, quantum tone, ~4-6s. Thigh-high standards.",
-    "Calf left prep. Sweep up toward knee with smooth motion, concise sunflower delivery, ~4-6s. Calf love.",
-    "Calf right prep. Maintain even pressure rhythm, toaster voice, ~4-6s. Leg it out.",
-    "Heel prep. Short careful strokes around heel, keep pressure banana light, ~4-6s. Heel yeah.",
-    "Arch of foot prep. Gentle arcs along arch maintain control, concise penguin instruction, ~4-6s. Arch enemy pun.",
-    "Groin area prep respectfully. Minimal pressure careful motions for comfort, marzipan tone, ~4-6s. Respect the space.",
-    "Upper back center prep. Firm even passes across upper back, quantum delivery, ~4-6s. Back in action.",
-    "Lower abdomen prep. Gentle measured strokes below navel, concise sunflower voice, ~4-6s. Core values.",
-    "Side torso left prep. Smooth longitudinal strokes along left flank, toaster instruction, ~4-6s. Flank you very much.",
-    "Side torso right prep. Even steady passes along right flank, banana tone, ~4-6s. Side note pun.",
-    "Upper arm front prep. Controlled forward strokes along biceps, penguin delivery, ~4-6s. Arm's length.",
-    "Upper arm back prep. Smooth backward passes over triceps, marzipan voice, ~4-6s. Back on track.",
-    "Wrist prep. Short delicate motions around wrist emphasize gentleness, quantum tone, ~4-6s. Wrist watch.",
-    "Thumb area prep. Precise small strokes around thumb, concise sunflower instruction, ~4-6s. Thumbs up.",
-    "Index finger prep. Small controlled passes maintain comfort, toaster tone, ~4-6s. Point made.",
-    "Ring finger prep. Gentle focused strokes on ring finger, banana delivery, ~4-6s. Ring leader.",
-    "Back of hand prep. Long even strokes across dorsum of hand calm marzipan voice, ~4-6s. Hand me that.",
-    "Palmar crease prep. Gentle passes along palm crease emphasize care, penguin tone, ~4-6s. Crease of joy.",
-    "Collarbone prep. Smooth outward strokes across clavicle concise sunflower instruction, ~4-6s. Collar up.",
-    "Behind knee prep. Short careful motions popliteal area keep it toaster gentle, ~4-6s. Knee-capping humor.",
-    "Back of neck prep. Small soothing strokes along neck concise banana delivery, ~4-6s. Neck and neck.",
-    "Jawline prep. Gentle outward passes along jaw maintain comfort marzipan voice, ~4-6s. Jaw-dropping.",
-    "Temple prep. Very light small strokes at temple emphasize gentleness penguin tone, ~4-6s. Temple run.",
-    "Solar plexus prep. Soft measured strokes over chest center concise quantum instruction, ~4-6s. Plexus express.",
-    "Rib flank prep. Long controlled passes along flank professional sunflower voice, ~4-6s. Flank you kindly.",
-    "Hipbone prep. Smooth even strokes around hipbone area concise toaster delivery, ~4-6s. Hip to be square."
+
+# Professional Stern Doctor Voice Prompts (starting from index 2)
+DOCTOR_PROMPTS = [
+    "Targeting left shoulder. Epidermal resurfacing initiated. Apply the abrasive tool with consistent downward force. Protocol must be followed strictly.",
+    "Moving to right shoulder. Prepare the site for deep tissue exfoliation. Ensure all follicular obstructions are removed immediately. Maintain steady pressure.",
+    "Upper back region identified. Initiate systematic circular passes. The patient's excessive hair density requires increased scrape depth. Proceed with caution.",
+    "Lower back maintenance. Execute firm longitudinal strokes. Surface contaminants must be eliminated. Do not allow the tool to slip.",
+    "Chest area protocol. This is a sensitive zone but requires rigorous mechanical debridement. Monitor dermal redness throughout the process.",
+    "Abdominal region. Apply the metal scraper with deliberate, rhythmic motions. Ensure even coverage from the sternum to the waistline.",
+    "Left thigh procedure. Long, sweeping passes are necessary to clear the thick hair patches. Maintain a 45-degree angle with the tool.",
+    "Right thigh procedure. Identical parameters as the previous limb. Precision is paramount. Do not rush the abrasion cycle.",
+    "Left shin identified. Short, controlled strokes along the bone. The abrasive sound must remain consistent. Watch for micro-abrasions.",
+    "Right shin identified. Repeat the debridement process. Surface smoothing is the objective. Any unevenness in the scrape is unacceptable.",
+    "Left calf area. Maintain firm pressure against the muscle tissue. Systematic upward strokes only. Efficiency is expected.",
+    "Right calf area. Concluding the lower limb sequence. Ensure the transition between areas is seamless. Clean the tool after this pass.",
+    "Neck region preparation. High precision required. Use the tip of the exfoliation tool for localized debris removal. Steady hands only.",
+    "Nape of the neck. This area often harbors hidden follicles. Scrape with intent. The patient must remain perfectly still.",
+    "Scalp treatment. Abrasive friction must be maximized despite the hair density. This is a deep-clean operation. No exceptions.",
+    "Left forearm sequence. Epidermal layers are thinner here. Adjust pressure but maintain the abrasive effect. Surface must be cleared.",
+    "Upper left arm. Focus on the triceps region. Deep-seated dirt requires a more aggressive rasp. Do not hesitate.",
+    "Left hand dorsum. Precise movements around the knuckles. Every millimeter must be treated. Professional standards apply.",
+    "Left palm. Remove calloused layers with the serrated edge. This is a functional restoration, not a cosmetic one.",
+    "Left fingers. Individual attention to each digit. Small, sharp strokes. Ensure complete follicular extraction.",
+    "Hip region. Wide, circular passes. The abrasive tool must remain in constant contact with the skin. Monitor the sound of the scrape.",
+    "Waistline. Maintain a tight grip on the scraper. Follow the natural contour of the torso. Thoroughness is the only metric.",
+    "Lower leg transition. Ensure the ankle joint is bypassed correctly before returning to the main calf muscle. Protocol is absolute.",
+    "Ankle joint. Careful scraping around the bone. Do not compromise the depth of the exfoliation. Results must be uniform.",
+    "Left foot. Extensive resurfacing needed. Use the heavy-duty rasp for the heel and mid-sole. Deep abrasion is necessary.",
+    "Toes. Minute adjustments to the tool's angle. Clear all inter-digital debris. This is a critical sanitation step.",
+    "Inner thigh left. Maintain professional distance while ensuring maximum abrasive efficiency. Skin must be left raw but clean.",
+    "Outer thigh left. Long, powerful strokes. The tool's teeth must bite into the epidermal layer. This is for the patient's own good.",
+    "Buttock region. Large surface area requires a systematic grid-like scraping pattern. Efficiency and speed are required.",
+    "Lower back center. Target the spine line with vertical passes. Surface irregularities must be ground down.",
+    "Upper chest center. Direct contact with the sternum area. Use short, high-pressure bursts. The sound of the tool is your guide.",
+    "Sternum area. Focus on the central ridge. Abrasive depth should be maximized here. No follicular remnants allowed.",
+    "Left ribcage. Careful navigation of the intercostal spaces. Maintain consistent scraping noise. Professional focus is mandatory.",
+    "Right ribcage. Synchronize your movements with the patient's breathing. Do not slow down. The protocol dictates the pace.",
+    "Inner forearm left. Delicate but firm. Clear the translucent hair patches. The resulting surface must be perfectly smooth.",
+    "Elbow joint. Rasp the calloused skin until the pink layer is visible. This is a mandatory resurfacing step.",
+    "Knee joint. Circular passes around the patella. Ensure full range of motion is cleared of debris. Precision is key.",
+    "Left shoulder blade. Scrape from the medial to lateral edge. Use the full length of the metal tool. No area is to be missed.",
+    "Right shoulder blade. Repeat the scapular debridement. Maintain a stern focus on the abrasive texture. This is a medical necessity.",
+    "Inner thigh right. Consistent pressure is vital. Do not deviate from the marked zones. Follow the instructions to the letter.",
+    "Outer thigh right. Large scale mechanical scraping. The patient's comfort is secondary to the quality of the exfoliation.",
+    "Calf left medial. Focus on the inner muscle line. Scrape with upward momentum. Ensure all surface oil is removed.",
+    "Calf right medial. Identical procedure. The tool must be kept at a sharp angle for maximum epidermal take-up.",
+    "Heel of the foot. Apply maximum pressure. This thick tissue requires a rigorous grinding motion. Use the coarse side of the rasp.",
+    "Arch of the foot. Sensitive but necessary. Maintain a steady hand. The tool must not skip over the surface.",
+    "Groin area. Proceed with clinical detachment. Focus on the peripheral follicles. Abrasive standards must not drop.",
+    "Upper back center. The highest density of debris is located here. Use the tool like a scalpel. Precise, deep, and final.",
+    "Lower abdomen. Soft tissue requires rhythmic scraping. Do not let the skin bunch up under the metal tool.",
+    "Side torso left. Long vertical passes. From the armpit to the hip. This is a comprehensive cleaning cycle.",
+    "Side torso right. Maintain the same vertical intensity. The scraper must be cleared of hair every three passes.",
+    "Upper arm front. Bicep region debridement. Fast, sharp strokes. We are looking for a complete textural shift.",
+    "Upper arm back. Tricep region. Use the tool's edge for better penetration. The patient's skin must be resurfaced.",
+    "Wrist. Small circular motions. Careful with the tendons. The metal tool must remain in control at all times.",
+    "Thumb area. Detailed work on the thenar eminence. Remove all dead cells. This is a standard surgical-prep exfoliation.",
+    "Index finger. From base to tip. Each stroke must be calculated. We are removing years of accumulation.",
+    "Ring finger. Precision is demanded. Use the fine-grained side of the metal scraper. Do not allow for error.",
+    "Back of hand right. Consistent with the left. The asymmetric man must have symmetric results. Scrape firmly.",
+    "Palmar crease. Dig the tool into the lines of the hand. No debris must remain in the folds. Professional grade cleaning.",
+    "Collarbone. Scrape along the bone line. The sound should be sharp and clear. This confirms the tool is working.",
+    "Behind the knee. High moisture area requires more frequent tool cleaning. Maintain the rasping intensity.",
+    "Back of neck lower. Focus on the transition to the shoulders. Broad, heavy strokes. The hair must go.",
+    "Jawline. Scrape from the ear to the chin. Maintain a stern clinical gaze. Every follicle is a target.",
+    "Temple region. Use extreme caution but do not reduce pressure. This is a targeted epidermal strike.",
+    "Hipbone area. The final position. Concluding the full body exfoliation. Ensure the metal tool makes one last definitive pass."
 ]
 
+VOICE_PROMPTS = ["Chimpo-Studios. A subsidiary of Universal.", "Exfoliate."] + DOCTOR_PROMPTS
 
 SFX_PROMPTS = [
+    "Film projector whirr, studio intro music flourish, cinematic.",
+    "Deep echoing bass thud, mechanical click, metallic reverb."
+] + [
     "Close-up rusty-metal rasp: harsh scrape of a corroded tool against wet skin, heavy slosh, 2.5s, high fidelity.",
     "Rag-on-rust scrape: gritty metal-on-skin abrasion with loud sloshing liquid and a metallic squeal, 2.5s.",
     "Motor rasp and wet scrub: buzzing primitive motor plus vigorous wet scrub slosh, high gain, 2.5s.",
@@ -189,15 +191,12 @@ SFX_PROMPTS = [
     "Rag-spin rasp: fast rag spin against skin making gritty rasp, 2.2s.",
     "Deep rasp and pop: weighty rasp punctuated by wet pops, 2.3s.",
     "Metallic gash scrape: rough metallic dragging like a gash with slosh, 2.4s.",
-    "Final heavy scrub: big vigorous scrub with metal rasp and resounding splash, 2.7s.",
+    "Final heavy scrub: big vigorous scrub with metal rasp and resounding splash, 2.7s."
 ]
 
-MUSIC_PROMPT = "Slow minimal elevator-like instrumental with soft synth pads, sparse piano and a hidden whispered voice occasionally saying 'exfoliate' and quiet moans; subdued, low volume suitable as background music, length 120s. High quality."
-
-# helper
+MUSIC_PROMPT = "Slow minimal elevator-like instrumental with soft synth pads, sparse piano; subdued, low volume suitable as background music, length 120s. High quality."
 
 def apply_audio_effects(file_path):
-    # mild EQ / compressor to make voices sit better
     try:
         temp = file_path.replace('.wav', '_tmp.wav')
         af = "lowshelf=g=4:f=120,acompressor=threshold=-14dB:ratio=3:makeup=3dB"
@@ -206,256 +205,142 @@ def apply_audio_effects(file_path):
     except Exception as e:
         print('Audio effect failed:', e)
 
+def generate_intro():
+    # Scene 00: Logo
+    logo_src = "assets_chimp_train/images/00_studio_logo.png"
+    logo_dst = f"{OUTPUT_DIR}/images/00_scene.png"
+    if os.path.exists(logo_src) and not os.path.exists(logo_dst):
+        shutil.copy(logo_src, logo_dst)
+        print("Copied studio logo.")
+    elif not os.path.exists(logo_dst):
+        img = Image.new('RGB', (1280, 720), color=(0, 0, 0))
+        d = ImageDraw.Draw(img)
+        d.text((500, 350), "CHIMPO-STUDIOS", fill=(255, 255, 255))
+        img.save(logo_dst)
+
+    # Scene 01: Title Card
+    title_dst = f"{OUTPUT_DIR}/images/01_scene.png"
+    if not os.path.exists(title_dst):
+        img = Image.new('RGB', (1280, 720), color=(10, 10, 10))
+        d = ImageDraw.Draw(img)
+        # Draw a big bold EXFOLIATE
+        text = "EXFOLIATE"
+        try:
+            # try to find a system font
+            fnt = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Black.ttf", 120)
+        except:
+            fnt = None
+        d.text((350, 280), text, fill=(200, 200, 200), font=fnt)
+        img.save(title_dst)
+        print("Generated title card.")
 
 def generate_images():
-    print('--- Generating Images (SDXL Lightning) ---')
+    print('--- Generating Images (Tiny SD) ---')
+    generate_intro()
     try:
-        # Prefer FLUX.1 (flux1) if available; fallback to SDXL Lightning if not.
-        # Prefer FLUX.2 via a vanilla PyTorch loading approach; fallback to SDXL Lightning
-        try:
-            from diffusers import FluxPipeline
-            import torch as _torch
-            print('Attempting to load Flux.2 via FluxPipeline (vanilla PyTorch)...')
-            flux_model = 'black-forest-labs/FLUX.2-dev'
-            torch_dtype = _torch.float16 if DEVICE != 'cpu' else _torch.float32
-            pipe = FluxPipeline.from_pretrained(flux_model, torch_dtype=torch_dtype)
-            # move to device using vanilla .to
-            dev = 'cuda' if DEVICE == 'cuda' else 'cpu'
-            try:
-                pipe.to(dev)
-            except Exception as e_dev:
-                print('Failed to move Flux pipeline to device with .to(), attempting individual components:', e_dev)
-                try:
-                    for attr in ('transformer', 'text_encoder', 'vae', 'unet'):
-                        m = getattr(pipe, attr, None)
-                        if m is not None:
-                            m.to(dev)
-                except Exception:
-                    pass
-            print('Loaded Flux.2 pipeline (vanilla)')
-        except Exception as e_flux2:
-            print('Flux.2 load failed, falling back to SDXL Lightning:', e_flux2)
-            pipe = load_sdxl_lightning()
+        repo_id = "segmind/tiny-sd"
+        model_id = snapshot_download(repo_id)
+        dtype = torch.float16 if DEVICE == "cuda" else torch.float32
+        pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=dtype)
+        if DEVICE == "cuda":
+            pipe.enable_model_cpu_offload()
+        else:
+            pipe.to(DEVICE)
+        if hasattr(pipe, 'safety_checker'): pipe.safety_checker = None
 
-        for i in range(1, NUM + 1):
-            # Build image prompts from the corresponding voice prompt so visuals match audio
-            raw_voice = VOICE_PROMPTS[i - 1]
-            # remove time markers like ~4-6s and trim
-            voice_clean = re.sub(r"~\d+-\d+s\.?", "", raw_voice).strip()
-            before_fname = f"{OUTPUT_DIR}/images/{i:02d}_before.png"
-            during_fname = f"{OUTPUT_DIR}/images/{i:02d}_during.png"
+        for i in range(NUM_POSITIONS):
+            scene_idx = i + 2
+            area = AREAS[i]
+            before_fname = f"{OUTPUT_DIR}/images/{scene_idx:02d}_before.png"
+            during_fname = f"{OUTPUT_DIR}/images/{scene_idx:02d}_during.png"
+            
+            def sanitize(p): return re.sub(r'\s+', ' ', p).strip()
+
             if not os.path.exists(before_fname):
-                prompt = IMAGE_BEFORE_PROMPT.format(voice=voice_clean)
-                print(f'Generating before image {i:02d} from voice: "{voice_clean[:60]}..."')
-                # sanitize and truncate prompt to avoid CLIP token length errors
-                def sanitize_and_truncate(p, max_words=70):
-                    p = p.replace('4 k', '4k')
-                    p = re.sub(r'style\s*:\s*flux\.?\s*1\s*full', 'style:flux.1', p, flags=re.I)
-                    p = re.sub(r'\s+', ' ', p).strip()
-                    words = p.split()
-                    if len(words) > max_words:
-                        p = ' '.join(words[:max_words])
-                    return p
-
-                sprompt = sanitize_and_truncate(prompt)
-                img = generate_image(pipe, sprompt, steps=8, guidance=0.0, seed=101 + i)
+                prompt = IMAGE_BEFORE_PROMPT.format(area=area)
+                print(f'Generating before image {scene_idx:02d} ({area})...')
+                img = generate_image(pipe, sanitize(prompt), steps=25, guidance=7.5, seed=101 + i)
                 img.save(before_fname)
+            
             if not os.path.exists(during_fname):
-                prompt = IMAGE_DURING_PROMPT.format(voice=voice_clean)
-                print(f'Generating during image {i:02d} from voice: "{voice_clean[:60]}..."')
-                sprompt = sanitize_and_truncate(prompt)
-                img = generate_image(pipe, sprompt, steps=8, guidance=0.0, seed=201 + i)
+                prompt = IMAGE_DURING_PROMPT.format(area=area)
+                print(f'Generating during image {scene_idx:02d} ({area})...')
+                img = generate_image(pipe, sanitize(prompt), steps=25, guidance=7.5, seed=201 + i)
                 img.save(during_fname)
-        try:
-            del pipe
-        except Exception:
-            pass
-        flush()
+        del pipe; flush()
     except Exception as e:
         print('Image generation failed:', e)
-        # Fallback: create simple placeholder images so downstream assembly can continue offline
-        try:
-            from PIL import Image, ImageDraw, ImageFont
-            for i in range(1, NUM + 1):
-                before_fname = f"{OUTPUT_DIR}/images/{i:02d}_before.png"
-                during_fname = f"{OUTPUT_DIR}/images/{i:02d}_during.png"
-                for fname, label in ((before_fname, f"Before {i:02d}"), (during_fname, f"During {i:02d}")):
-                    if not os.path.exists(fname):
-                        img = Image.new('RGB', (1280, 720), color=(40, 40, 40))
-                        d = ImageDraw.Draw(img)
-                        try:
-                            fnt = ImageFont.load_default()
-                        except Exception:
-                            fnt = None
-                        d.text((20, 20), label, fill=(255, 255, 255), font=fnt)
-                        img.save(fname)
-            print('Wrote placeholder images for offline use.')
-        except Exception as e2:
-            print('Failed to write placeholder images:', e2)
-        # Fallback: create simple placeholder images so downstream assembly can continue offline
-        try:
-            from PIL import Image, ImageDraw, ImageFont
-            for i in range(1, NUM + 1):
-                before_fname = f"{OUTPUT_DIR}/images/{i:02d}_before.png"
-                during_fname = f"{OUTPUT_DIR}/images/{i:02d}_during.png"
-                for fname, label in ((before_fname, f"Before {i:02d}"), (during_fname, f"During {i:02d}")):
-                    if not os.path.exists(fname):
-                        img = Image.new('RGB', (1280, 720), color=(40, 40, 40))
-                        d = ImageDraw.Draw(img)
-                        try:
-                            fnt = ImageFont.load_default()
-                        except Exception:
-                            fnt = None
-                        d.text((20, 20), label, fill=(255, 255, 255), font=fnt)
-                        img.save(fname)
-            print('Wrote placeholder images for offline use.')
-        except Exception as e2:
-            print('Failed to write placeholder images:', e2)
-
 
 def generate_voice():
-    print('--- Generating 64 ChatTTS voice lines ---')
+    print('--- Generating 66 Voice Lines (MMS-TTS) ---')
     try:
-        import random
-        chat = ChatTTS.Chat()
-        chat.load(compile=False)
-        wrong_words = [
-            "banana","octopus","keyboard","marmalade","sunflower","penguin","quantum","toaster","marzipan","cactus"
-        ]
-        puns = [
-            "This will scrub you like new money.",
-            "Smooth as a pancake, but less flat.",
-            "We'll get right to the skin of the matter.",
-            "You'll be exfoliated to the nth degree.",
-            "This is unbe-leaf-able.",
-            "A scrub so good it's criminal.",
-            "Polish it till it says 'uncle'.",
-            "Buff it till it squeaks like a violin."
-        ]
-
-        def stretch_word(w):
-            # insert a mild drawn-out "ooh" in the middle of the word (avoid hyphens)
-            if not w or len(w) < 3:
-                return w
-            i = len(w) // 2
-            return w[:i] + "ooh" + w[i:]
-
-        for i in range(1, NUM + 1):
-            # sanitize base prompt: remove timing markers like ~4-6s and stray digits/tildes
-            base = VOICE_PROMPTS[i - 1]
-            base = re.sub(r"~\d+-\d+s\.?", "", base)
-            base = re.sub(r"[~\d]+", "", base)
-            base = base.strip()
-
-            rnd = random.Random(i)  # deterministic per index
-            words = base.split()
-            if len(words) > 2:
-                rem_idx = rnd.randrange(len(words))
-                del words[rem_idx]
-            if len(words) > 0:
-                rep_idx = rnd.randrange(len(words))
-                words[rep_idx] = wrong_words[rnd.randrange(len(wrong_words))]
-            txt = " ".join(words)
-            if rnd.random() < 0.75:
-                txt += " " + puns[rnd.randrange(len(puns))]
-
-            # apply a drawn-out awkward effect to one word in the final text
-            parts = txt.split()
-            if len(parts) > 0:
-                idx = (i - 1) % len(parts)
-                parts[idx] = stretch_word(parts[idx])
-                txt = " ".join(parts)
-
-            # final sanitization: remove remaining tildes, digits, or hyphens and collapse spaces
-            txt = re.sub(r"[~\d-]+", "", txt)
+        repo_id = "facebook/mms-tts-eng"
+        model_id = snapshot_download(repo_id)
+        tokenizer = AutoTokenizer.from_pretrained(model_id)
+        model = VitsModel.from_pretrained(model_id).to(DEVICE)
+        
+        for i in range(TOTAL_SCENES):
+            txt = VOICE_PROMPTS[i]
             txt = re.sub(r"\s+", " ", txt).strip()
-
             out_file = f"{OUTPUT_DIR}/voice/voice_{i:02d}.wav"
-            if os.path.exists(out_file):
-                continue
-            print(f'Generating voice {i:02d}: "{txt[:60]}..."')
-            try:
-                wavs = chat.infer([txt], use_decoder=True)
-                if wavs and len(wavs) > 0:
-                    arr = np.array(wavs[0]).flatten()
-                    if arr.size <= 0:
-                        raise ValueError('empty waveform')
-                    scipy.io.wavfile.write(out_file, 24000, arr)
-                    apply_audio_effects(out_file)
-                else:
-                    raise ValueError('no wavs returned')
-            except Exception as e_wav:
-                print(f'ChatTTS failed for index {i}: {e_wav}; writing 1s silence fallback')
-                # write 1s silence at 24000Hz
-                sil = (np.zeros(24000, dtype=np.int16)).astype(np.int16)
-                scipy.io.wavfile.write(out_file, 24000, sil)
-        del chat
-        flush()
+            if os.path.exists(out_file): continue
+            
+            print(f'Generating voice {i:02d}: "{txt[:50]}..."')
+            inputs = tokenizer(txt, return_tensors="pt").to(DEVICE)
+            with torch.no_grad():
+                output = model(**inputs).waveform
+            scipy.io.wavfile.write(out_file, model.config.sampling_rate, output.cpu().numpy().flatten())
+            apply_audio_effects(out_file)
+        del model, tokenizer; flush()
     except Exception as e:
-        print('ChatTTS generation failed:', e)
-
+        print('MMS-TTS generation failed:', e)
 
 def generate_sfx():
-    print('\n--- Generating SFX (Stable Audio) ---')
+    print('\n--- Generating SFX (AudioLDM2) ---')
     try:
-        model_id = 'stabilityai/stable-audio-open-1.0'
-        pipe = StableAudioPipeline.from_pretrained(model_id, dtype=torch.float32)
-        if DEVICE == 'cuda': pipe.enable_model_cpu_offload()
-        else: pipe.to(DEVICE)
-        neg = 'low quality, noise, artifacts'
-        for i in range(1, NUM + 1):
+        repo_id = "cvssp/audioldm2"
+        model_id = snapshot_download(repo_id)
+        print(f"Loading AudioLDM2 from {model_id}...")
+        pipe = AudioLDM2Pipeline.from_pretrained(model_id, torch_dtype=torch.float32)
+        if DEVICE == "cuda":
+            pipe.enable_model_cpu_offload()
+        else:
+            pipe.to(DEVICE)
+        
+        for i in range(len(SFX_PROMPTS)):
             fname = f"{OUTPUT_DIR}/sfx/{i:02d}_exfoliate.wav"
-            if os.path.exists(fname):
-                continue
+            if os.path.exists(fname): continue
             print(f'Generating SFX {i:02d}')
-            # Use a low-frequency manual saw-on-wood prompt to emphasize low-end rasp
-            prompt = "Manual hand saw scraping along wood (tree trunk): coarse low-frequency rasp and deep woody friction, subdued high-end, naturalistic, 6.0s, high fidelity."
-            audio = pipe(prompt=prompt, negative_prompt=neg, num_inference_steps=100, audio_end_in_s=6.0).audios[0]
-            data = audio.cpu().numpy().T
-            scipy.io.wavfile.write(fname, rate=44100, data=data)
-            # Post-process: apply stronger low-pass filter and gentle compression to emphasize low freq
+            prompt = SFX_PROMPTS[i]
+            audio = pipe(prompt, num_inference_steps=50, audio_length_in_s=3.0).audios[0]
+            scipy.io.wavfile.write(fname, 16000, audio)
             try:
                 temp = fname.replace('.wav', '_lp.wav')
-                ff_af = "lowpass=f=800,acompressor=threshold=-12dB:ratio=3:makeup=3dB"
-                subprocess.run(["ffmpeg", "-y", "-i", fname, "-af", ff_af, "-ar", "44100", temp], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(["ffmpeg", "-y", "-i", fname, "-af", "lowpass=f=800", "-ar", "32000", temp], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 os.replace(temp, fname)
-            except Exception as e_pp:
-                print('SFX postprocess failed:', e_pp)
-        del pipe
-        flush()
+            except: pass
+        del pipe; flush()
     except Exception as e:
         print('SFX generation failed:', e)
 
-
 def generate_music():
-    print('\n--- Generating Music (Stable Audio) ---')
+    print('\n--- Generating Music (AudioLDM2) ---')
     try:
-        model_id = 'stabilityai/stable-audio-open-1.0'
-        pipe = StableAudioPipeline.from_pretrained(model_id, dtype=torch.float32)
-        if DEVICE == 'cuda': pipe.enable_model_cpu_offload()
-        else: pipe.to(DEVICE)
+        repo_id = "cvssp/audioldm2-music"
+        model_id = snapshot_download(repo_id)
+        pipe = AudioLDM2Pipeline.from_pretrained(model_id, torch_dtype=torch.float32)
+        if DEVICE == "cuda":
+            pipe.enable_model_cpu_offload()
+        else:
+            pipe.to(DEVICE)
         filename = f"{OUTPUT_DIR}/music/theme_elevator.wav"
-        if os.path.exists(filename):
-            return
-        print('Generating background music (theme_elevator)')
-        # clamp requested duration to model max length if available
-        requested = 120.0
-        max_len = getattr(pipe, 'max_audio_seconds', None)
-        if max_len is None:
-            # try common property name
-            max_len = getattr(getattr(pipe, 'config', {}), 'max_audio_seconds', None)
-        if max_len is None:
-            max_len = 47.5
-        end_s = min(requested, float(max_len))
-        if requested > end_s:
-            print(f'Requested {requested}s too long for model (max {max_len}s); using {end_s}s')
-        audio = pipe(prompt=MUSIC_PROMPT, negative_prompt='noise, harsh, vocals', num_inference_steps=100, audio_end_in_s=end_s).audios[0]
-        scipy.io.wavfile.write(filename, rate=44100, data=audio.cpu().numpy().T)
-        del pipe
-        flush()
+        if os.path.exists(filename): return
+        print('Generating background music...')
+        audio = pipe(MUSIC_PROMPT, num_inference_steps=100, audio_length_in_s=15.0).audios[0]
+        scipy.io.wavfile.write(filename, 44100, audio)
+        del pipe; flush()
     except Exception as e:
         print('Music generation failed:', e)
-
 
 if __name__ == '__main__':
     import sys
@@ -463,8 +348,6 @@ if __name__ == '__main__':
     if 'voice' in sys.argv: generate_voice(); sys.exit(0)
     if 'sfx' in sys.argv: generate_sfx(); sys.exit(0)
     if 'music' in sys.argv: generate_music(); sys.exit(0)
-
-    # default: run all
     generate_images()
     generate_voice()
     generate_sfx()

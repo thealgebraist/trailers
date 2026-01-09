@@ -1,27 +1,7 @@
 #!/usr/bin/env python3
 """
-Simple ffmpeg assembler for an "EXFOLIATE" movie built from assets_exfoliate.
-
-Expect structure:
-  assets_exfoliate/
-    images/
-      01_before.png
-      01_during.png
-      02_before.png
-      02_during.png
-      ... up to 64
-    voice/
-      voiceover_01.wav ... voiceover_64.wav
-    sfx/
-      01_exfoliate.wav ... 64_exfoliate.wav
-    music/
-      theme_elevator.wav   (should include whisper/moan in the file)
-
-This script concatenates 64 sections, each showing two images (before->during),
-plays the per-section voiceover and sfx (loud), mixes in low-volume background music,
-and outputs EXFOLIATE.mp4 and EXFOLIATE.mpg.
-
-This is a template: actual assets must be provided by the user.
+Simple ffmpeg assembler for EXFOLIATE.
+Ensures that "image N" (the during image) is shown ONLY while "speak N" (the voice) is playing.
 """
 
 import os
@@ -38,14 +18,11 @@ MUSIC_DIR = os.path.join(ASSETS_DIR, "music")
 OUTPUT_MP4 = "EXFOLIATE.mp4"
 OUTPUT_MPG = "EXFOLIATE.mpg"
 
-NUM = 64
-DEFAULT_BEFORE_DUR = 1.5  # seconds for the "before" image
-DEFAULT_EXTRA = 0.5       # extra padding after voice for the "during" image
-
+NUM_SCENES = 66
+BEFORE_DUR = 1.5  # Fixed duration for the "before" images
 
 def exists_and_nonzero(p):
     return p and os.path.exists(p) and os.path.getsize(p) > 0
-
 
 def probe_duration(path):
     try:
@@ -55,155 +32,170 @@ def probe_duration(path):
         ], capture_output=True, text=True, check=True)
         return float(out.stdout.strip())
     except Exception:
-        return 0.0
-
+        return 2.0  # Default fallback
 
 def build_and_run():
     cmd = ["ffmpeg", "-y"]
 
-    # Collect expected inputs
-    video_inputs = []  # pairs of images per section
-    voice_files = []
-    sfx_files = []
-
-    for i in range(1, NUM + 1):
-        idx = f"{i:02d}"
-        before = os.path.join(IMG_DIR, f"{idx}_before.png")
-        during = os.path.join(IMG_DIR, f"{idx}_during.png")
-        video_inputs.append((before, during))
-
-        vf = os.path.join(VOICE_DIR, f"voiceover_{idx}.wav")
-        voice_files.append(vf if exists_and_nonzero(vf) else None)
-
-        sf = os.path.join(SFX_DIR, f"{idx}_exfoliate.wav")
-        sfx_files.append(sf if exists_and_nonzero(sf) else None)
-
-    # music
-    music_file = os.path.join(MUSIC_DIR, "theme_elevator.wav")
-    if not exists_and_nonzero(music_file):
-        music_file = None
-
-    # Add image inputs: each image is looped for its duration (before image fixed, during depends on voice)
-    # We'll add all images as inputs in order: for each section first before then during.
+    # We will build a complex filter to handle all synchronization.
+    # First, gather all durations and add all inputs.
+    
     video_durations = []
-    voice_durations = []
-
-    for i, (before, during) in enumerate(video_inputs):
-        # probe voice duration
-        vd = 0.0
-        if voice_files[i]:
-            vd = probe_duration(voice_files[i])
-        voice_durations.append(vd)
-
-        # durations
-        before_dur = DEFAULT_BEFORE_DUR
-        during_dur = vd + DEFAULT_EXTRA if vd > 0.001 else 4.0
-        video_durations.extend([before_dur, during_dur])
-
-        # add inputs
-        if exists_and_nonzero(before):
-            cmd += ["-loop", "1", "-t", str(before_dur), "-i", before]
+    inputs_count = 0
+    
+    # 1. Add Video Inputs
+    for i in range(NUM_SCENES):
+        idx = f"{i:02d}"
+        v_path = os.path.join(VOICE_DIR, f"voice_{idx}.wav")
+        vd = probe_duration(v_path) if exists_and_nonzero(v_path) else 2.0
+        
+        if i < 2:
+            # Intro scenes: Single image
+            # USER SPEC: 00: fade in 2s, keep 2s, fade out 3s (Total 7s)
+            #           01: fade in 2s, keep 2s, fade out 4s (Total 8s)
+            target_dur = 7.0 if i == 0 else 8.0
+            vd = max(vd, target_dur)
+            img_path = os.path.join(IMG_DIR, f"{idx}_scene.png")
+            if exists_and_nonzero(img_path):
+                cmd += ["-loop", "1", "-t", str(vd), "-i", img_path]
+            else:
+                cmd += ["-f", "lavfi", "-t", str(vd), "-i", "color=c=black:s=1280x720"]
+            video_durations.append(vd)
+            inputs_count += 1
         else:
-            # transparent placeholder if missing
-            cmd += ["-f", "lavfi", "-t", str(before_dur), "-i", "color=size=1280x720:color=black"]
+            # Exfoliation scenes: Before and During
+            # USER SPEC: before for half duration, during for last half
+            d_half = vd / 2.0
+            
+            before_path = os.path.join(IMG_DIR, f"{idx}_before.png")
+            during_path = os.path.join(IMG_DIR, f"{idx}_during.png")
+            
+            # Before
+            if exists_and_nonzero(before_path):
+                cmd += ["-loop", "1", "-t", str(d_half), "-i", before_path]
+            else:
+                cmd += ["-f", "lavfi", "-t", str(d_half), "-i", "color=c=black:s=1280x720"]
+            video_durations.append(d_half)
+            
+            # During
+            if exists_and_nonzero(during_path):
+                cmd += ["-loop", "1", "-t", str(vd - d_half), "-i", during_path]
+            else:
+                cmd += ["-f", "lavfi", "-t", str(vd - d_half), "-i", "color=c=black:s=1280x720"]
+            video_durations.append(vd - d_half)
+            inputs_count += 2
 
-        if exists_and_nonzero(during):
-            cmd += ["-loop", "1", "-t", str(during_dur), "-i", during]
+    # Total video inputs: 2 (intro) + 64*2 = 130
+    Nvid = inputs_count
+    
+    # 2. Add Voice Inputs
+    for i in range(NUM_SCENES):
+        idx = f"{i:02d}"
+        v_path = os.path.join(VOICE_DIR, f"voice_{idx}.wav")
+        if exists_and_nonzero(v_path):
+            cmd += ["-i", v_path]
         else:
-            cmd += ["-f", "lavfi", "-t", str(during_dur), "-i", "color=size=1280x720:color=black"]
-
-    # Add voice inputs (one per section)
-    for i in range(NUM):
-        vf = voice_files[i]
-        if vf and exists_and_nonzero(vf):
-            cmd += ["-i", vf]
+            vd = video_durations[1 + (i-2)*2] if i >= 2 else video_durations[i]
+            cmd += ["-f", "lavfi", "-t", str(vd), "-i", "anullsrc=r=44100:cl=stereo"]
+    
+    # 3. Add SFX Inputs
+    for i in range(NUM_SCENES):
+        idx = f"{i:02d}"
+        s_path = os.path.join(SFX_DIR, f"{idx}_exfoliate.wav")
+        if exists_and_nonzero(s_path):
+            cmd += ["-i", s_path]
         else:
-            # silence matching during image duration
-            dur = video_durations[2 * i + 1]
-            cmd += ["-f", "lavfi", "-t", str(dur), "-i", "anullsrc=r=44100:cl=stereo"]
+            vd = video_durations[1 + (i-2)*2] if i >= 2 else video_durations[i]
+            cmd += ["-f", "lavfi", "-t", str(vd), "-i", "anullsrc=r=44100:cl=stereo"]
 
-    # Add SFX inputs (one per section)
-    for i in range(NUM):
-        sf = sfx_files[i]
-        if sf and exists_and_nonzero(sf):
-            cmd += ["-i", sf]
-        else:
-            dur = video_durations[2 * i + 1]
-            cmd += ["-f", "lavfi", "-t", str(dur), "-i", "anullsrc=r=44100:cl=stereo"]
-
-    # Add music input (single)
-    if music_file:
+    # 4. Add Music Input
+    music_file = os.path.join(MUSIC_DIR, "theme_elevator.wav")
+    if exists_and_nonzero(music_file):
         cmd += ["-i", music_file]
     else:
-        cmd += ["-f", "lavfi", "-t", "120", "-i", "anullsrc=r=44100:cl=stereo"]
+        cmd += ["-f", "lavfi", "-t", "600", "-i", "anullsrc=r=44100:cl=stereo"]
 
-    # Build video filter chain: scale/pad each input and concat
-    Nvid = 2 * NUM
+    # Filter Complex
     v_filters = ""
     for i in range(Nvid):
-        dur = video_durations[i]
-        base = f"[{i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1"
-        # small crossfade between the pair boundary could be added, but keep simple
-        base += ",format=yuv420p"
+        base = f"[{i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p"
+        if i == 0:
+            # Studios: in 2s, out 3s at 4s (total 7s)
+            base += ",fade=t=in:st=0:d=2,fade=t=out:st=4:d=3"
+        elif i == 1:
+            # Title: in 2s, out 4s at 4s (total 8s)
+            base += ",fade=t=in:st=0:d=2,fade=t=out:st=4:d=4"
         v_filters += f"{base}[v{i}];"
-    v_concat_inputs = "".join([f"[v{i}]" for i in range(Nvid)])
-    v_filters += f"{v_concat_inputs}concat=n={Nvid}:v=1:a=0[vout];"
+    v_concat = "".join([f"[v{i}]" for i in range(Nvid)])
+    v_filters += f"{v_concat}concat=n={Nvid}:v=1:a=0[vout];"
 
-    # Audio preparation
     audio_prep = ""
-    # voices start after their corresponding image start; voices were appended after all videos, so compute index
     vo_start = Nvid
-    sfx_start = vo_start + NUM
-    music_start = sfx_start + NUM
+    sfx_start = vo_start + NUM_SCENES
+    music_start = sfx_start + NUM_SCENES
 
-    # Prepare voices (resample/format) and silence where appropriate
-    for i in range(NUM):
-        audio_prep += f"[{vo_start + i}:a]aresample=44100,aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[vo{i}];"
-    vo_inputs = "".join([f"[vo{i}]" for i in range(NUM)])
-    audio_prep += f"{vo_inputs}concat=n={NUM}:v=0:a=1[voices];"
+    # For each scene, prepare the audio segment
+    # Intro scenes: voice + sfx (BUT user requested no speak for title/logo)
+    # Exfoliation scenes: voice + sfx
+    for i in range(NUM_SCENES):
+        v_idx = vo_start + i
+        s_idx = sfx_start + i
+        
+        # Prepare voice (silence for first two)
+        if i < 2:
+            audio_prep += f"anullsrc=r=44100:cl=stereo:d={video_durations[i]}[vo{i}];"
+        else:
+            audio_prep += f"[{v_idx}:a]aresample=44100,aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[vo{i}];"
+        
+        # Prepare SFX
+        audio_prep += f"[{s_idx}:a]aresample=44100,aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[sf{i}];"
+        
+        # Mix voice and sfx
+        audio_prep += f"[vo{i}][sf{i}]amix=inputs=2:duration=first:normalize=0[mix{i}];"
+        
+        if i < 2:
+            # Pad to video duration
+            dur = video_durations[i]
+            audio_prep += f"[mix{i}]apad=whole_len={int(dur * 44100)}[aseg{i}];"
+        else:
+            # Direct mix (plays during both before/during images)
+            audio_prep += f"[mix{i}]acopy[aseg{i}];"
 
-    # Prepare sfx
-    for i in range(NUM):
-        audio_prep += f"[{sfx_start + i}:a]aresample=44100,aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[sfx{i}];"
-    sfx_inputs = "".join([f"[sfx{i}]" for i in range(NUM)])
-    audio_prep += f"{sfx_inputs}concat=n={NUM}:v=0:a=1[sfxs];"
+    # Concat all audio segments
+    a_concat = "".join([f"[aseg{i}]" for i in range(NUM_SCENES)])
+    audio_prep += f"{a_concat}concat=n={NUM_SCENES}:v=0:a=1[full_content];"
 
     # Prepare music
-    audio_prep += f"[{music_start}:a]aresample=44100,aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[music];"
-
-    # Levels: voices normal, sfx loud, music quiet
-    audio_prep += "[voices]volume=1.0[voicesv];"
-    audio_prep += "[sfxs]volume=1.2[sfxsv];"  # loud SFX
-    audio_prep += "[music]volume=0.08[musicv];"
-
-    # Mix all three
-    audio_prep += "[voicesv][sfxsv][musicv]amix=inputs=3:duration=first:normalize=0[aout]"
+    audio_prep += f"[{music_start}:a]aresample=44100,aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,volume=0.08[musicv];"
+    
+    # Mix content and music
+    audio_prep += "[full_content]volume=1.0[contentv];"
+    audio_prep += "[contentv][musicv]amix=inputs=2:duration=first:normalize=0[aout]"
 
     cmd += ["-filter_complex", v_filters + audio_prep]
     cmd += ["-map", "[vout]", "-map", "[aout]"]
 
-    # Output mp4
-    mp4_cmd = cmd + [
+    # Output settings
+    cmd += [
         "-c:v", "libx264", "-preset", "slow", "-crf", "18",
         "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2",
         "-r", "24", OUTPUT_MP4
     ]
 
-    print('Running ffmpeg to create MP4...')
-    subprocess.run(mp4_cmd, check=True)
-    print(f'Created {OUTPUT_MP4}')
+    print(f"Running FFmpeg to create {OUTPUT_MP4}...")
+    subprocess.run(cmd, check=True)
+    print(f"Created {OUTPUT_MP4}")
 
-    # Convert MP4 to MPG
+    # Convert to MPG
     mpg_cmd = [
         "ffmpeg", "-y", "-i", OUTPUT_MP4,
         "-c:v", "mpeg2video", "-q:v", "2", "-b:v", "15000k", "-maxrate", "20000k", "-bufsize", "10000k",
         "-c:a", "mp3", "-b:a", "384k", "-ar", "44100", "-ac", "2",
         "-r", "24", OUTPUT_MPG
     ]
-    print('Converting MP4 to MPEG2 MPG...')
+    print(f"Converting to {OUTPUT_MPG}...")
     subprocess.run(mpg_cmd, check=True)
-    print(f'Created {OUTPUT_MPG}')
+    print(f"Created {OUTPUT_MPG}")
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     build_and_run()
