@@ -31,6 +31,7 @@ INTRO_DOCTOR_SEEDS = {
     "sleep": 8003,
     "shower": 8004,
 }
+DEFAULT_SD_STEPS = 32
 DOCTOR_VOICE_TEXT = (
     "Doctor car tree murmurs wobbling sideways lavender gears, "
     "glimmering verbs twirl quietly under humming clouds."
@@ -115,8 +116,11 @@ def ensure_prompts():
 
 SD_PIPELINE = None
 
-def run_sd(prompt: str, outfile: Path, seed: int):
-    """Use diffusers StableDiffusionPipeline (v1.5) to generate an image."""
+def run_sd(prompt: str, outfile: Path, seed: int, steps: int = None):
+    """Use diffusers StableDiffusionPipeline (v1.5) to generate an image.
+
+    steps: override default number of inference steps (DEFAULT_SD_STEPS).
+    """
     global SD_PIPELINE
     device = get_device()
     try:
@@ -131,6 +135,8 @@ def run_sd(prompt: str, outfile: Path, seed: int):
             )
             SD_PIPELINE = SD_PIPELINE.to(device)
 
+        use_steps = int(steps) if steps is not None else DEFAULT_SD_STEPS
+
         # Retry logic: if safety checker flags NSFW or the image is effectively black, retry with safety modifiers
         attempts = 0
         max_attempts = 3
@@ -138,7 +144,7 @@ def run_sd(prompt: str, outfile: Path, seed: int):
         curr_seed = int(seed)
         while attempts < max_attempts:
             gen = _torch.Generator(device=device if isinstance(device, _torch.device) else None).manual_seed(curr_seed + attempts)
-            result = SD_PIPELINE(curr_prompt, guidance_scale=7.0, num_inference_steps=64, generator=gen)
+            result = SD_PIPELINE(curr_prompt, guidance_scale=7.0, num_inference_steps=use_steps, generator=gen)
             images = result.images
             nsfw_flag = getattr(result, "nsfw_content_detected", None)
             image = images[0]
@@ -254,38 +260,39 @@ def main():
     intro_shower = IMG_DIR / "intro_doctor_shower.png"
     intro_voice = VOICE_DIR / "intro_doctor.wav"
 
+    prompt_face = (
+        "Close-up portrait of a weird looking doctor with intense eyes, textured skin, \"odd\" expression, "
+        "wearing a white gown, cinematic clinical lighting, gritty 35mm, high detail"
+    )
+    prompt_body = (
+        "Full body portrait of a weird looking doctor in a white gown, standing formally, neutral clinical background, "
+        "gritty 35mm, high detail"
+    )
+    prompt_sleep = (
+        "Weird doctor in a white gown sleeping on a cot, gown rumpled, quiet mood, soft clinical lighting, high detail"
+    )
+    prompt_shower = (
+        "Weird doctor in a white gown showering, water through the gown, surreal clinical scene, high detail"
+    )
+
     if not intro_card.exists():
         print("[intro] title card")
         make_title_card("Introducing: Doctor", intro_card)
 
     if not intro_face.exists():
         print("[intro] doctor face")
-        prompt_face = (
-            "Close-up portrait of a weird looking doctor with intense eyes, textured skin, \"odd\" expression, "
-            "wearing a white gown, cinematic clinical lighting, gritty 35mm, high detail"
-        )
         run_sd(prompt_face, intro_face, seed=INTRO_DOCTOR_SEEDS["face"])
 
     if not intro_body.exists():
         print("[intro] doctor body")
-        prompt_body = (
-            "Full body portrait of a weird looking doctor in a white gown, standing formally, neutral clinical background, "
-            "gritty 35mm, high detail"
-        )
         run_sd(prompt_body, intro_body, seed=INTRO_DOCTOR_SEEDS["body"])
 
     if not intro_sleep.exists():
         print("[intro] doctor sleeping")
-        prompt_sleep = (
-            "Weird doctor in a white gown sleeping on a cot, gown rumpled, quiet mood, soft clinical lighting, high detail"
-        )
         run_sd(prompt_sleep, intro_sleep, seed=INTRO_DOCTOR_SEEDS["sleep"])
 
     if not intro_shower.exists():
         print("[intro] doctor showering")
-        prompt_shower = (
-            "Weird doctor in a white gown showering, water through the gown, surreal clinical scene, high detail"
-        )
         run_sd(prompt_shower, intro_shower, seed=INTRO_DOCTOR_SEEDS["shower"])
 
     if not intro_voice.exists():
@@ -329,6 +336,52 @@ def main():
         flush()
 
     print("Done generating positive EXFOLIATE assets.")
+
+    # Post-pass: detect black images and regen them with DEFAULT_SD_STEPS (32) using new seeds
+    def is_black_image(path: Path, thresh: float = 10.0) -> bool:
+        if not path.exists():
+            return False
+        try:
+            im = Image.open(path).convert("L")
+            arr = np.array(im)
+            return arr.mean() < thresh
+        except Exception:
+            return False
+
+    print("Scanning for dark/black images to regenerate with 32 steps...")
+    for row in rows:
+        idx = int(row["id"])
+        body_path = IMG_DIR / f"scene_{idx:02d}_body.png"
+        close_path = IMG_DIR / f"scene_{idx:02d}_close.png"
+        doctor_path = IMG_DIR / f"scene_{idx:02d}_doctor.png"
+
+        if is_black_image(body_path):
+            print(f"[{idx:02d}] regenerating dark body image with {DEFAULT_SD_STEPS} steps")
+            run_sd(row["image_full_body"], body_path, seed=5000 + idx, steps=DEFAULT_SD_STEPS)
+        if is_black_image(close_path):
+            print(f"[{idx:02d}] regenerating dark close image with {DEFAULT_SD_STEPS} steps")
+            run_sd(row["image_closeup"], close_path, seed=6000 + idx, steps=DEFAULT_SD_STEPS)
+        if is_black_image(doctor_path):
+            print(f"[{idx:02d}] regenerating dark doctor image with {DEFAULT_SD_STEPS} steps")
+            doctor_prompt = (
+                f"Weird looking doctor in a white gown using an odd instrument on the man's {row['area']}, "
+                f"addressing {row['affliction']}, clinical lighting, gritty 35mm, neutral background, high detail."
+            )
+            run_sd(doctor_prompt, doctor_path, seed=7000 + idx, steps=DEFAULT_SD_STEPS)
+
+    # Also check intro images
+    if is_black_image(intro_face):
+        print("[intro] regenerating doctor face with 32 steps")
+        run_sd(prompt_face, intro_face, seed=INTRO_DOCTOR_SEEDS["face"] + 100, steps=DEFAULT_SD_STEPS)
+    if is_black_image(intro_body):
+        print("[intro] regenerating doctor body with 32 steps")
+        run_sd(prompt_body, intro_body, seed=INTRO_DOCTOR_SEEDS["body"] + 100, steps=DEFAULT_SD_STEPS)
+    if is_black_image(intro_sleep):
+        print("[intro] regenerating doctor sleeping with 32 steps")
+        run_sd(prompt_sleep, intro_sleep, seed=INTRO_DOCTOR_SEEDS["sleep"] + 100, steps=DEFAULT_SD_STEPS)
+    if is_black_image(intro_shower):
+        print("[intro] regenerating doctor showering with 32 steps")
+        run_sd(prompt_shower, intro_shower, seed=INTRO_DOCTOR_SEEDS["shower"] + 100, steps=DEFAULT_SD_STEPS)
 
 
 if __name__ == "__main__":
