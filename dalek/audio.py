@@ -16,10 +16,20 @@ def generate_parler_audio(model, tokenizer, text, description, device=None):
     if device is None:
         device = get_device()
     
-    input_ids = tokenizer(description, return_tensors="pt").input_ids.to(device)
-    prompt_input_ids = tokenizer(text, return_tensors="pt").input_ids.to(device)
+    desc = tokenizer(description, return_tensors="pt", return_attention_mask=True)
+    prompt = tokenizer(text, return_tensors="pt", return_attention_mask=True)
 
-    generation = model.generate(input_ids=input_ids, prompt_input_ids=prompt_input_ids)
+    input_ids = desc.input_ids.to(device)
+    attention_mask = desc.attention_mask.to(device)
+    prompt_input_ids = prompt.input_ids.to(device)
+    prompt_attention_mask = prompt.attention_mask.to(device)
+
+    generation = model.generate(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        prompt_input_ids=prompt_input_ids,
+        prompt_attention_mask=prompt_attention_mask,
+    )
     audio_arr = generation.cpu().numpy().squeeze()
     return audio_arr
 
