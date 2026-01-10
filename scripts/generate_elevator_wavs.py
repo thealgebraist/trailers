@@ -92,31 +92,25 @@ def generate_elevator_music_model(outfile: Path, duration: float = 10.0) -> bool
     # Try Suno
     try:
         import soundfile as sf
-        import torch
-        import suno
-        prompt = 'boring elevator music, mellow piano, soft pad, slow tempo, unobtrusive background music'
-        # Try common Suno patterns
-        if hasattr(suno, 'generate_audio'):
-            wav, sr = suno.generate_audio(prompt=prompt, duration=duration)
-        elif hasattr(suno, 'music') and hasattr(suno.music, 'generate'):
-            wav = suno.music.generate(prompt=prompt, duration=duration)
-            # assume sample rate 32000
-            sr = getattr(wav, 'sample_rate', 32000)
+        # Try to use facebook/MusicGen via a local MusicGen wrapper if available
+        try:
+            from musicgen import MusicGen
+            model = MusicGen.from_pretrained('facebook/musicgen-small')
+            prompt = 'boring elevator music, mellow piano, soft pad, slow tempo, unobtrusive background music'
+            wav = model.generate(prompt, duration=duration)
             if isinstance(wav, tuple):
                 wav, sr = wav
-        else:
-            # attempt a generic client call
-            gen = getattr(suno, 'AudioEngine', None)
-            if gen is not None:
-                engine = gen()
-                wav = engine.generate(prompt=prompt, duration=duration)
-                sr = getattr(engine, 'sample_rate', 32000)
             else:
-                raise RuntimeError('Unknown Suno API')
-        sf.write(outfile, wav, sr)
-        return True
+                sr = getattr(model, 'sample_rate', 32000)
+            sf.write(outfile, wav, sr)
+            return True
+        except Exception:
+            # try an alternate import path
+            from transformers import AutoModel
+            # If transformers path works, user should implement specific loader; raise to fallback
+            raise
     except Exception as e:
-        print(f"Suno generation failed: {e}")
+        print(f"MusicGen (facebook) generation failed: {e}")
     # Fallback: music21+FluidSynth
     if generate_elevator_music_music21(outfile, duration=duration):
         return True
