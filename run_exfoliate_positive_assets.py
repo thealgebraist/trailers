@@ -205,6 +205,32 @@ def mms_tts(model, tokenizer, text: str, outfile: Path):
     scipy.io.wavfile.write(outfile, sr, audio_int16)
 
 
+# Simple boring elevator music generator (synthesized chords)
+def generate_elevator_music(outfile: Path, duration: float = 10.0, sr: int = 22050):
+    import math
+    t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+    # chord progression: two slow triads alternating
+    chords = [
+        [261.63, 329.63, 392.00],  # C major
+        [220.00, 277.18, 329.63],  # A minor-ish
+    ]
+    audio = np.zeros_like(t)
+    seg = duration / len(chords)
+    for i, chord in enumerate(chords):
+        start = int(i * seg * sr)
+        end = int((i + 1) * seg * sr)
+        for f in chord:
+            # gentle sine with slow envelope
+            env = np.linspace(0, 1, end - start)
+            audio[start:end] += 0.2 * env * np.sin(2 * math.pi * f * t[start:end])
+    # gentle low-pass by simple smoothing (moving average)
+    kernel = np.ones(5) / 5.0
+    audio = np.convolve(audio, kernel, mode='same')
+    audio = audio / np.max(np.abs(audio) + 1e-9)
+    audio_int16 = (audio * 16000).astype(np.int16)
+    scipy.io.wavfile.write(outfile, sr, audio_int16)
+
+
 def eight_word_caption(idx: int, affliction: str, area: str) -> str:
     caption = CAPTIONS[idx]
     words = caption.split()
@@ -283,10 +309,10 @@ def main():
         "gritty 35mm, high detail"
     )
     prompt_sleep = (
-        "Weird doctor in a white gown sleeping on a cot, gown rumpled, quiet mood, soft clinical lighting, high detail"
+        "Weird doctor in a white gown resting on a cot, gown fully on, quiet mood, soft clinical lighting, high detail"
     )
     prompt_shower = (
-        "Weird doctor in a white gown showering, water through the gown, surreal clinical scene, high detail"
+        "Weird doctor in a white gown standing under running water, gown intact, surreal clinical scene, high detail"
     )
 
     if not intro_card.exists():
@@ -312,6 +338,23 @@ def main():
     if not intro_voice.exists():
         print("[intro] doctor voice (MMS)")
         mms_tts(model, tokenizer, DOCTOR_VOICE_TEXT, intro_voice)
+
+    # subject area cards with boring elevator music at positions 16,32,48,64 (1-based)
+    SUBJECT_AREAS = ["Dermatology", "Orthopedics", "Neurology", "General Medicine"]
+    SUBJECT_INDICES = [15, 31, 47, 63]
+
+    for s_idx, subj in zip(SUBJECT_INDICES, SUBJECT_AREAS):
+        # find corresponding row if exists
+        if s_idx < len(rows):
+            r = rows[s_idx]
+            subj_card = CARD_DIR / f"subject_{s_idx:02d}_card.png"
+            subj_music = VOICE_DIR / f"subject_{s_idx:02d}_elevator.wav"
+            if not subj_card.exists():
+                print(f"[subject {s_idx}] title card: {subj}")
+                make_title_card(subj, subj_card)
+            if not subj_music.exists():
+                print(f"[subject {s_idx}] generating boring elevator music (10s)")
+                generate_elevator_music(subj_music, duration=10.0)
 
     for row in rows:
         idx = int(row["id"])
