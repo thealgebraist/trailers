@@ -88,6 +88,36 @@ def generate_elevator_music_music21(outfile: Path, duration: float = 10.0) -> bo
 
 
 def generate_elevator_music_model(outfile: Path, duration: float = 10.0) -> bool:
+    """Prefer Suno (torch) for generation, fall back to MusicGen, then music21, then synth."""
+    # Try Suno
+    try:
+        import soundfile as sf
+        import torch
+        import suno
+        prompt = 'boring elevator music, mellow piano, soft pad, slow tempo, unobtrusive background music'
+        # Try common Suno patterns
+        if hasattr(suno, 'generate_audio'):
+            wav, sr = suno.generate_audio(prompt=prompt, duration=duration)
+        elif hasattr(suno, 'music') and hasattr(suno.music, 'generate'):
+            wav = suno.music.generate(prompt=prompt, duration=duration)
+            # assume sample rate 32000
+            sr = getattr(wav, 'sample_rate', 32000)
+            if isinstance(wav, tuple):
+                wav, sr = wav
+        else:
+            # attempt a generic client call
+            gen = getattr(suno, 'AudioEngine', None)
+            if gen is not None:
+                engine = gen()
+                wav = engine.generate(prompt=prompt, duration=duration)
+                sr = getattr(engine, 'sample_rate', 32000)
+            else:
+                raise RuntimeError('Unknown Suno API')
+        sf.write(outfile, wav, sr)
+        return True
+    except Exception as e:
+        print(f"Suno generation failed: {e}")
+    # Fallback: MusicGen
     try:
         from audiocraft.models import MusicGen
         import soundfile as sf
@@ -101,7 +131,12 @@ def generate_elevator_music_model(outfile: Path, duration: float = 10.0) -> bool
         return True
     except Exception as e:
         print(f"MusicGen generation failed: {e}")
-        return False
+    # Fallback: music21+FluidSynth
+    if generate_elevator_music_music21(outfile, duration=duration):
+        return True
+    # Last resort: synth
+    generate_elevator_music(outfile, duration=duration)
+    return True
 
 
 if __name__ == '__main__':
