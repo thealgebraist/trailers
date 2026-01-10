@@ -26,6 +26,17 @@ OUTPUT_DIR = Path("assets_exfoliate_positive")
 IMG_DIR = OUTPUT_DIR / "images"
 VOICE_DIR = OUTPUT_DIR / "voice"
 CARD_DIR = OUTPUT_DIR / "cards"
+INTRO_DOCTOR_SEEDS = {
+    "card": 8000,
+    "face": 8001,
+    "body": 8002,
+    "sleep": 8003,
+    "shower": 8004,
+}
+DOCTOR_VOICE_TEXT = (
+    "Doctor car tree murmurs wobbling sideways lavender gears, "
+    "glimmering verbs twirl quietly under humming clouds."
+)
 
 CAPTIONS = [
     "Calmly observing phantom itching on left shoulder easing",
@@ -104,7 +115,33 @@ def ensure_prompts():
     subprocess.run(["python3", "generate_exfoliate_positive_assets.py"], check=True)
 
 
+SD_PIPELINE = None
+
 def run_sd(prompt: str, outfile: Path, seed: int):
+    """Try to use diffusers StableDiffusionPipeline (v1.5); fall back to sd-cli if unavailable."""
+    global SD_PIPELINE
+    device = get_device()
+    try:
+        # lazy import to avoid heavy dependency unless used
+        from diffusers import StableDiffusionPipeline
+        import torch as _torch
+
+        if SD_PIPELINE is None:
+            SD_PIPELINE = StableDiffusionPipeline.from_pretrained(
+                "runwayml/stable-diffusion-v1-5",
+                torch_dtype=_torch.float16,
+            )
+            SD_PIPELINE = SD_PIPELINE.to(device)
+
+        gen = _torch.Generator(device=device if isinstance(device, (str, _torch.device)) else device).manual_seed(int(seed))
+        result = SD_PIPELINE(prompt, guidance_scale=7.0, num_inference_steps=22, generator=gen)
+        image = result.images[0]
+        image.save(outfile)
+        return
+    except Exception as e:
+        print(f"Python SD API failed ({e}), falling back to sd-cli")
+
+    # fallback to sd-cli binary
     cmd = [
         str(SD_CLI),
         "-m", str(SD_MODEL),
@@ -205,6 +242,52 @@ def main():
     print(f"Loading MMS TTS on {device}")
     tokenizer = AutoTokenizer.from_pretrained("facebook/mms-tts-eng")
     model = VitsModel.from_pretrained("facebook/mms-tts-eng").to(device)
+
+    # Intro: doctor sequence (card, face, body, sleeping, shower) + weird voice
+    intro_card = CARD_DIR / "intro_doctor_card.png"
+    intro_face = IMG_DIR / "intro_doctor_face.png"
+    intro_body = IMG_DIR / "intro_doctor_body.png"
+    intro_sleep = IMG_DIR / "intro_doctor_sleep.png"
+    intro_shower = IMG_DIR / "intro_doctor_shower.png"
+    intro_voice = VOICE_DIR / "intro_doctor.wav"
+
+    if not intro_card.exists():
+        print("[intro] title card")
+        make_title_card("Introducing: Doctor", intro_card)
+
+    if not intro_face.exists():
+        print("[intro] doctor face")
+        prompt_face = (
+            "Close-up portrait of a weird looking doctor with intense eyes, textured skin, \"odd\" expression, "
+            "wearing a white gown, cinematic clinical lighting, gritty 35mm, high detail"
+        )
+        run_sd(prompt_face, intro_face, seed=INTRO_DOCTOR_SEEDS["face"])
+
+    if not intro_body.exists():
+        print("[intro] doctor body")
+        prompt_body = (
+            "Full body portrait of a weird looking doctor in a white gown, standing formally, neutral clinical background, "
+            "gritty 35mm, high detail"
+        )
+        run_sd(prompt_body, intro_body, seed=INTRO_DOCTOR_SEEDS["body"])
+
+    if not intro_sleep.exists():
+        print("[intro] doctor sleeping")
+        prompt_sleep = (
+            "Weird doctor in a white gown sleeping on a cot, gown rumpled, quiet mood, soft clinical lighting, high detail"
+        )
+        run_sd(prompt_sleep, intro_sleep, seed=INTRO_DOCTOR_SEEDS["sleep"])
+
+    if not intro_shower.exists():
+        print("[intro] doctor showering")
+        prompt_shower = (
+            "Weird doctor in a white gown showering, water through the gown, surreal clinical scene, high detail"
+        )
+        run_sd(prompt_shower, intro_shower, seed=INTRO_DOCTOR_SEEDS["shower"])
+
+    if not intro_voice.exists():
+        print("[intro] doctor voice (MMS)")
+        mms_tts(model, tokenizer, DOCTOR_VOICE_TEXT, intro_voice)
 
     for row in rows:
         idx = int(row["id"])
