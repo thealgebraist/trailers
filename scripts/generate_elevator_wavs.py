@@ -87,30 +87,41 @@ def generate_elevator_music_music21(outfile: Path, duration: float = 10.0) -> bo
         return False
 
 
+MUSIC_PIPE = None
+
 def generate_elevator_music_model(outfile: Path, duration: float = 10.0) -> bool:
-    """Prefer Suno (torch) for generation, fall back to MusicGen, then music21, then synth."""
-    # Try Suno
+    """Generate elevator music using facebook/musicgen-small via transformers pipeline.
+    Falls back to music21+FluidSynth then synth.
+    """
+    global MUSIC_PIPE
     try:
-        import soundfile as sf
-        # Try to use facebook/MusicGen via a local MusicGen wrapper if available
-        try:
-            from musicgen import MusicGen
-            model = MusicGen.from_pretrained('facebook/musicgen-small')
-            prompt = 'boring elevator music, mellow piano, soft pad, slow tempo, unobtrusive background music'
-            wav = model.generate(prompt, duration=duration)
-            if isinstance(wav, tuple):
-                wav, sr = wav
-            else:
-                sr = getattr(model, 'sample_rate', 32000)
-            sf.write(outfile, wav, sr)
-            return True
-        except Exception:
-            # try an alternate import path
-            from transformers import AutoModel
-            # If transformers path works, user should implement specific loader; raise to fallback
-            raise
+        import torch
+        from transformers import pipeline
+        import scipy.io.wavfile as wavfile
+
+        device = 0 if torch.cuda.is_available() else -1
+        if MUSIC_PIPE is None:
+            MUSIC_PIPE = pipeline(
+                task="text-to-audio",
+                model="facebook/musicgen-small",
+                device=device,
+                trust_remote_code=True,
+            )
+        prompt = 'boring elevator music, mellow piano, soft pad, slow tempo, unobtrusive background music'
+        result = MUSIC_PIPE(
+            prompt,
+            forward_params={
+                "do_sample": True,
+                "guidance_scale": 3.0,
+                "max_new_tokens": 512,
+            },
+        )
+        audio_arr = result["audio"]
+        sr = result["sampling_rate"]
+        wavfile.write(outfile, sr, audio_arr.astype("float32"))
+        return True
     except Exception as e:
-        print(f"MusicGen (facebook) generation failed: {e}")
+        print(f"facebook/musicgen-small generation failed: {e}")
     # Fallback: music21+FluidSynth
     if generate_elevator_music_music21(outfile, duration=duration):
         return True
