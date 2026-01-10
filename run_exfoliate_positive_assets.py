@@ -138,7 +138,7 @@ def run_sd(prompt: str, outfile: Path, seed: int):
         curr_seed = int(seed)
         while attempts < max_attempts:
             gen = _torch.Generator(device=device if isinstance(device, _torch.device) else None).manual_seed(curr_seed + attempts)
-            result = SD_PIPELINE(curr_prompt, guidance_scale=7.0, num_inference_steps=22, generator=gen)
+            result = SD_PIPELINE(curr_prompt, guidance_scale=7.0, num_inference_steps=64, generator=gen)
             images = result.images
             nsfw_flag = getattr(result, "nsfw_content_detected", None)
             image = images[0]
