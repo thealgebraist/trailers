@@ -107,8 +107,15 @@ def build():
         v_durations.append(SUBJECT_CARD_DUR)
         # audio input for subject card: looped and trimmed by input '-t SUBJECT_CARD_DUR'
         if exists(subj_music):
-            cmd += ["-stream_loop", "-1", "-t", str(SUBJECT_CARD_DUR), "-i", str(subj_music)]
-            audio_inputs.append(subj_music)
+            # pre-render a looped trimmed WAV to avoid complex -stream_loop placement in ffmpeg single command
+            tmp_audio = TMP_DIR / f"subject_{subj_idx:02d}_loop.wav"
+            if not tmp_audio.exists():
+                subprocess.run([
+                    "ffmpeg", "-y", "-stream_loop", "-1", "-i", str(subj_music),
+                    "-t", f"{SUBJECT_CARD_DUR}", "-ac", "2", "-ar", "44100", "-c:a", "pcm_s16le", str(tmp_audio)
+                ], check=True)
+            cmd += ["-i", str(tmp_audio)]
+            audio_inputs.append(tmp_audio)
         else:
             # silent audio input
             cmd += ["-f", "lavfi", "-t", str(SUBJECT_CARD_DUR), "-i", "anullsrc=r=44100:cl=stereo"]
