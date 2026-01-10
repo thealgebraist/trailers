@@ -137,10 +137,24 @@ def run_sd(prompt: str, outfile: Path, seed: int, steps: int = None):
 
         use_steps = int(steps) if steps is not None else DEFAULT_SD_STEPS
 
-        # Retry logic: if safety checker flags NSFW or the image is effectively black, retry with safety modifiers
+        # Retry logic: sanitize prompts for risky scenes and retry up to max_attempts
+        import re
+        def sanitize_prompt(p: str) -> str:
+            # replace showering with a clearly clothed description
+            p = re.sub(r'\bshower(?:ing)?\b', 'standing under running water, gown intact', p, flags=re.I)
+            # replace sleeping with non-sexual resting phrasing
+            p = re.sub(r'\bsleep(?:ing)?\b', 'resting on a cot, gown fully on', p, flags=re.I)
+            # ensure clothing modifiers present
+            if not re.search(r'no nudity|fully clothed|modest attire|covered', p, flags=re.I):
+                p = p + ', fully clothed, no nudity, modest attire'
+            return p
+
         attempts = 0
         max_attempts = 3
         curr_prompt = prompt
+        # pre-sanitize prompts that mention doctor/gown/shower/sleep to reduce NSFW hits
+        if re.search(r'\bdoctor\b|\bgown\b|\bshower\b|\bsleep\b', curr_prompt, flags=re.I):
+            curr_prompt = sanitize_prompt(curr_prompt)
         curr_seed = int(seed)
         while attempts < max_attempts:
             gen = _torch.Generator(device=device if isinstance(device, _torch.device) else None).manual_seed(curr_seed + attempts)
@@ -150,15 +164,15 @@ def run_sd(prompt: str, outfile: Path, seed: int, steps: int = None):
             image = images[0]
             # check for NSFW flag
             if nsfw_flag is not None and any(nsfw_flag):
-                print(f"NSFW detected for prompt (attempt {attempts+1}), retrying with strict clothing modifiers")
-                curr_prompt = curr_prompt + ", fully clothed, no nudity, modest attire, covered"
+                print(f"NSFW detected for prompt (attempt {attempts+1}), sanitizing and retrying")
+                curr_prompt = sanitize_prompt(curr_prompt)
                 attempts += 1
                 continue
             # check for black image
             arr = _np.array(image.convert("L"))
             if arr.mean() < 8:
-                print(f"Rendered image too dark/blank (mean {arr.mean():.1f}) on attempt {attempts+1}, retrying with clothing modifiers")
-                curr_prompt = curr_prompt + ", fully clothed, no nudity, modest attire, covered"
+                print(f"Rendered image too dark/blank (mean {arr.mean():.1f}) on attempt {attempts+1}), sanitizing and retrying")
+                curr_prompt = sanitize_prompt(curr_prompt)
                 attempts += 1
                 continue
             # success
