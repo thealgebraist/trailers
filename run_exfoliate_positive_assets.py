@@ -3,7 +3,7 @@
 Generate positive EXFOLIATE assets:
 - Reads prompts from assets_exfoliate_positive/prompts_positive.csv (creates via generate_exfoliate_positive_assets.py if missing).
 - Generates a title card per affliction (black background, white 8-word caption).
-- Generates full-body and close-up images with sd-cli (SD 1.5 GGUF).
+- Generates full-body and close-up images using Stable Diffusion v1.5 via diffusers.
 - Synthesizes voice lines with MMS TTS (facebook/mms-tts-eng).
 """
 
@@ -19,8 +19,6 @@ from transformers import VitsModel, AutoTokenizer
 
 from dalek.core import get_device, ensure_dir, flush
 
-SD_CLI = Path("/tmp/stable-diffusion.cpp/build/bin/sd-cli")
-SD_MODEL = Path("/Users/anders/models/sd/stable-diffusion-v1-5-Q8_0.gguf")
 PROMPT_CSV = Path("assets_exfoliate_positive/prompts_positive.csv")
 OUTPUT_DIR = Path("assets_exfoliate_positive")
 IMG_DIR = OUTPUT_DIR / "images"
@@ -118,11 +116,10 @@ def ensure_prompts():
 SD_PIPELINE = None
 
 def run_sd(prompt: str, outfile: Path, seed: int):
-    """Try to use diffusers StableDiffusionPipeline (v1.5); fall back to sd-cli if unavailable."""
+    """Use diffusers StableDiffusionPipeline (v1.5) to generate an image."""
     global SD_PIPELINE
     device = get_device()
     try:
-        # lazy import to avoid heavy dependency unless used
         from diffusers import StableDiffusionPipeline
         import torch as _torch
 
@@ -133,30 +130,12 @@ def run_sd(prompt: str, outfile: Path, seed: int):
             )
             SD_PIPELINE = SD_PIPELINE.to(device)
 
-        gen = _torch.Generator(device=device if isinstance(device, (str, _torch.device)) else device).manual_seed(int(seed))
+        gen = _torch.Generator(device=device if isinstance(device, _torch.device) else None).manual_seed(int(seed))
         result = SD_PIPELINE(prompt, guidance_scale=7.0, num_inference_steps=22, generator=gen)
         image = result.images[0]
         image.save(outfile)
-        return
     except Exception as e:
-        print(f"Python SD API failed ({e}), falling back to sd-cli")
-
-    # fallback to sd-cli binary
-    cmd = [
-        str(SD_CLI),
-        "-m", str(SD_MODEL),
-        "-p", prompt,
-        "-o", str(outfile),
-        "--width", "768",
-        "--height", "768",
-        "--steps", "22",
-        "--cfg-scale", "7",
-        "--seed", str(seed),
-        "-t", "-1",
-        "--vae-tiling",
-        "--clip-on-cpu",
-    ]
-    subprocess.run(cmd, check=True)
+        raise SystemExit(f"Stable Diffusion Python API failed: {e}. Install diffusers and model weights.")
 
 
 def load_prompts():
@@ -231,10 +210,6 @@ def main():
     ensure_dir(VOICE_DIR)
     ensure_dir(CARD_DIR)
 
-    if not SD_CLI.exists():
-        raise SystemExit(f"sd-cli not found at {SD_CLI}")
-    if not SD_MODEL.exists():
-        raise SystemExit(f"GGUF model not found at {SD_MODEL}")
 
     rows = load_prompts()
 
