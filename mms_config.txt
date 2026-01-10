@@ -1,0 +1,4 @@
+sample_rate: 16000
+text: hello
+input_shape: [1, 11]
+vocab_size: 38

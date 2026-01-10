@@ -1,0 +1,75 @@
+========================================================================
+  REAL LLM INFERENCE - C++23 + llama.cpp - IN PROGRESS
+========================================================================
+
+WHAT'S BEING BUILT:
+  • Real LLM text generation using TinyLlama-1.1B
+  • C++23 code with llama.cpp library
+  • NO DUMMY OUTPUT - all responses from real neural model
+
+STATUS:
+  ✓ llama.cpp installed via Homebrew (version 7680)
+  ✓ C++23 code written (llama_inference_cpp23.cpp)
+  ✓ Code compiles successfully
+  ⏳ Downloading TinyLlama-1.1B-Chat Q2_K model (~460MB)
+    - Progress: 71% complete
+    - Using quantized Q2_K version (smallest size)
+    - Model: TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF
+
+C++23 FEATURES USED:
+  • std::print/println - Modern formatted output
+  • std::format - String formatting
+  • std::expected - Error handling without exceptions  
+  • std::optional - Maybe values
+  • std::span - Safe array views
+  • std::ranges::views - Lazy evaluation (where available)
+  • auto return types - Type deduction
+  • [[nodiscard]] - Return value safety
+  • Modern initialization
+
+LLAMA.CPP INTEGRATION:
+  • Libraries: libllama, libggml
+  • Metal GPU acceleration support (macOS)
+  • Model loading: llama_model_load_from_file()
+  • Context creation: llama_init_from_model()
+  • Tokenization: llama_tokenize() with vocab
+  • Token generation: Greedy sampling from logits
+  • Decoding: llama_token_to_piece()
+
+COMPILATION:
+  clang++ -std=c++23 -O2 \
+    -I/opt/homebrew/Cellar/llama.cpp/7680/include \
+    -L/opt/homebrew/Cellar/llama.cpp/7680/lib \
+    -lllama -lggml \
+    llama_inference_cpp23.cpp -o llama_inference_cpp23
+
+TEST PROMPTS (NO DUMMY RESPONSES):
+  1. "What is the capital of France?"
+  2. "Explain quantum computing in one sentence."
+  3. "Write a haiku about programming."
+
+EXECUTION FLOW:
+  1. Initialize llama backend
+  2. Load GGUF model file
+  3. Create inference context (2048 tokens)
+  4. Tokenize input prompt
+  5. Evaluate prompt tokens
+  6. Generate tokens one by one (greedy sampling)
+  7. Decode tokens to text
+  8. Save outputs to llm_output_N.txt files
+
+MODEL DETAILS:
+  • Base: TinyLlama-1.1B-Chat-v1.0
+  • Quantization: Q2_K (2-bit)
+  • Size: ~460MB
+  • Context: 2048 tokens
+  • Format: GGUF (llama.cpp native)
+
+NEXT STEPS:
+  1. Wait for model download to complete
+  2. Run: ./llama_inference_cpp23
+  3. Verify real LLM responses
+  4. Compare with Python-based inference
+
+NO DUMMY/FALLBACK CODE - This uses a real 1.1B parameter language model
+that will generate actual intelligent responses to prompts!

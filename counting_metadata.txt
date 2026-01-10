@@ -1,0 +1,4 @@
+sample_rate: 22050
+num_samples: 50
+char_duration: 0.2
+method: procedural_tts

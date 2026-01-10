@@ -1,0 +1,52 @@
+# Timed voiceover prompts for charlies_train_banana_adventure
+# Logo and title durations: logo 7.0s (2 in,2 hold,3 out), title 6.0s (1 in,2 hold,3 out)
+# Voices start after intro offset = 7.0 + 6.0 = 13.0 seconds
+# Per-scene voice length: 4.5 seconds (approx), 1.0s padding after each voice -> scene slot = 5.5s
+# Voice files: assets_chimp_train/voice/parler_voiceover_{i}.wav
+
+OFFSET=13.000
+VOICE_DURATION=4.50
+PAUSE_AFTER=1.00
+SCENE_SLOT=5.50
+
+# Format: index | image_filename | start_time(s) | start_time(HH:MM:SS.mmm) | duration(s) | voice_file | prompt
+
+01 | assets_chimp_train/images/01_scene.png | 13.000 | 00:00:13.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_01.wav | "Charlie the chimp sits in his cozy jungle hut, dreaming of a glowing golden banana."
+02 | assets_chimp_train/images/02_scene.png | 18.500 | 00:00:18.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_02.wav | "He can almost taste the sweetness as he imagines the perfect fruit."
+03 | assets_chimp_train/images/03_scene.png | 24.000 | 00:00:24.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_03.wav | "Today is the day; he packs his small bag and prepares for a grand journey."
+04 | assets_chimp_train/images/04_scene.png | 29.500 | 00:00:29.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_04.wav | "Charlie arrives at the jungle train station, where the steam engine huffs and puffs."
+05 | assets_chimp_train/images/05_scene.png | 35.000 | 00:00:35.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_05.wav | "He stands on the platform, his ticket held tightly in his furry hand."
+06 | assets_chimp_train/images/06_scene.png | 40.500 | 00:00:40.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_06.wav | "The whistle blows, and Charlie knows his adventure is finally beginning."
+07 | assets_chimp_train/images/07_scene.png | 46.000 | 00:00:46.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_07.wav | "He climbs aboard the wooden carriage and finds a comfortable seat."
+08 | assets_chimp_train/images/08_scene.png | 51.500 | 00:00:51.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_08.wav | "The train starts to move, clicking and clacking along the iron rails."
+09 | assets_chimp_train/images/09_scene.png | 57.000 | 00:00:57.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_09.wav | "Charlie sits quietly, watching the jungle landscape begin to move."
+10 | assets_chimp_train/images/10_scene.png | 62.500 | 00:01:02.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_10.wav | "He presses his face against the cool glass of the window, mesmerized."
+11 | assets_chimp_train/images/11_scene.png | 68.000 | 00:01:08.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_11.wav | "Tall trees and rushing rivers blur into a beautiful green streak."
+12 | assets_chimp_train/images/12_scene.png | 73.500 | 00:01:13.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_12.wav | "The rhythm of the train lulls him into a peaceful, expectant state."
+13 | assets_chimp_train/images/13_scene.png | 79.000 | 00:01:19.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_13.wav | "Finally, the train slows down as it pulls into the distant station."
+14 | assets_chimp_train/images/14_scene.png | 84.500 | 00:01:24.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_14.wav | "Charlie hops off the train, looking around at the exciting new place."
+15 | assets_chimp_train/images/15_scene.png | 90.000 | 00:01:30.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_15.wav | "He knows the great banana market is just through the nearby woods."
+16 | assets_chimp_train/images/16_scene.png | 95.500 | 00:01:35.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_16.wav | "He enters the deep, lush forest, where sunlight filters through the canopy."
+17 | assets_chimp_train/images/17_scene.png | 101.000 | 00:01:41.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_17.wav | "Every rustle in the leaves makes him think he is getting closer."
+18 | assets_chimp_train/images/18_scene.png | 106.500 | 00:01:46.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_18.wav | "He walks with a steady pace, driven by the thought of that golden banana."
+19 | assets_chimp_train/images/19_scene.png | 112.000 | 00:01:52.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_19.wav | "At last, he reaches the bustling banana market, run by friendly chimps."
+20 | assets_chimp_train/images/20_scene.png | 117.500 | 00:01:57.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_20.wav | "He searches through the stalls until he sees it: the perfect golden banana."
+21 | assets_chimp_train/images/21_scene.png | 123.000 | 00:02:03.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_21.wav | "He holds the banana high, his heart filled with pure, simple joy."
+22 | assets_chimp_train/images/22_scene.png | 128.500 | 00:02:08.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_22.wav | "As evening falls, the forest turns into a landscape of deep blues and shadows."
+23 | assets_chimp_train/images/23_scene.png | 134.000 | 00:02:14.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_23.wav | "Charlie walks back through the trees, the jungle alive with night sounds."
+24 | assets_chimp_train/images/24_scene.png | 139.500 | 00:02:19.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_24.wav | "The moon rises high, lighting his path as he carries his treasure."
+25 | assets_chimp_train/images/25_scene.png | 145.000 | 00:02:25.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_25.wav | "He reaches the station at night, the platform quiet under the glowing lamps."
+26 | assets_chimp_train/images/26_scene.png | 150.500 | 00:02:30.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_26.wav | "He waits for the late-night train, his golden banana tucked safely away."
+27 | assets_chimp_train/images/27_scene.png | 156.000 | 00:02:36.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_27.wav | "The distant light of the locomotive appears, cutting through the darkness."
+28 | assets_chimp_train/images/28_scene.png | 161.500 | 00:02:41.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_28.wav | "Back on the train, Charlie watches the moonlight reflect off the trees."
+29 | assets_chimp_train/images/29_scene.png | 167.000 | 00:02:47.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_29.wav | "The carriage is dim and peaceful as the train carries him back home."
+30 | assets_chimp_train/images/30_scene.png | 172.500 | 00:02:52.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_30.wav | "He is tired but happy, resting his head against the wooden seat."
+31 | assets_chimp_train/images/31_scene.png | 178.000 | 00:02:58.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_31.wav | "At last, Charlie is back in his own jungle bed, the journey complete."
+32 | assets_chimp_train/images/32_scene.png | 183.500 | 00:03:03.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_32.wav | "He falls asleep with a smile, dreaming of his next big adventure."
+33 | assets_chimp_train/images/33_story_end_1.png | 189.000 | 00:03:09.000 | 4.50 | assets_chimp_train/voice/parler_voiceover_33.wav | "Closing frame: a quiet reflective image as Charlie settles; soft narration describing closure."
+34 | assets_chimp_train/images/34_story_end_2.png | 194.500 | 00:03:14.500 | 4.50 | assets_chimp_train/voice/parler_voiceover_34.wav | "Final frame: Charlie asleep and smiling, a gentle closing line about dreams and tomorrow."
+
+# Notes:
+# - These prompts are ~4.5s each; adjust VO_DURATION and PAUSE_AFTER if you prefer different pacing.
+# - Filenames and indices match the images discovered in assets_chimp_train/images (00_* excluded).
+# - To use: generate each voice file with its prompt and write to the voice file path; assembler expects an additional 1s silence after each voice (handled by the assembler).

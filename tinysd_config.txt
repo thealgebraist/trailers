@@ -1,0 +1,7 @@
+model_id: segmind/tiny-sd
+prompt: a photo of an astronaut riding a horse on mars
+height: 512
+width: 512
+num_inference_steps: 20
+guidance_scale: 7.5
+vocab_size: 49408
