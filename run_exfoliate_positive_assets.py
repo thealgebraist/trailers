@@ -314,13 +314,26 @@ def generate_elevator_music_music21(outfile: Path, duration: float = 10.0) -> bo
 
 
 def generate_elevator_music_model(outfile: Path, duration: float = 10.0) -> bool:
-    # Try RAVE first
-    if generate_elevator_music_rave(outfile, duration=duration):
+    """Generate elevator music using MusicGen (audiocraft). Falls back to music21/FluidSynth then synth.
+    Returns True on success, False otherwise.
+    """
+    try:
+        from audiocraft.models import MusicGen
+        import soundfile as sf
+        # use 'small' to keep resource use modest
+        model = MusicGen.get_pretrained('small')
+        model.set_generation_params(duration=duration)
+        prompt = 'boring elevator music, mellow piano, soft pad, slow tempo, unobtrusive background music'
+        wavs = model.generate([prompt])
+        wav = wavs[0]
+        sr = getattr(model, 'sample_rate', 32000)
+        sf.write(outfile, wav, sr)
         return True
-    # Then try music21 + FluidSynth
+    except Exception as e:
+        print(f"MusicGen generation failed: {e}")
+    # fallback to previous options
     if generate_elevator_music_music21(outfile, duration=duration):
         return True
-    # fall back to synth
     return generate_elevator_music(outfile, duration=duration)
 
 
