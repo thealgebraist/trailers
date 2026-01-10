@@ -231,6 +231,25 @@ def generate_elevator_music(outfile: Path, duration: float = 10.0, sr: int = 220
     scipy.io.wavfile.write(outfile, sr, audio_int16)
 
 
+# Prefer generating elevator music with a MusicGen model; fall back to the simple synth
+def generate_elevator_music_model(outfile: Path, duration: float = 10.0) -> bool:
+    try:
+        from audiocraft.models import MusicGen
+        import soundfile as sf
+        # load small model (downloads if not cached)
+        model = MusicGen.get_pretrained('small')
+        model.set_generation_params(duration=duration)
+        prompt = 'boring elevator music, mellow piano, soft pad, slow tempo, unobtrusive background music'
+        wavs = model.generate([prompt])
+        wav = wavs[0]
+        sr = getattr(model, 'sample_rate', 32000)
+        sf.write(outfile, wav, sr)
+        return True
+    except Exception as e:
+        print(f"Music model generation failed: {e}")
+        return False
+
+
 def eight_word_caption(idx: int, affliction: str, area: str) -> str:
     caption = CAPTIONS[idx]
     words = caption.split()
@@ -354,7 +373,8 @@ def main():
                 make_title_card(subj, subj_card)
             if not subj_music.exists():
                 print(f"[subject {s_idx}] generating boring elevator music (10s)")
-                generate_elevator_music(subj_music, duration=10.0)
+                if not generate_elevator_music_model(subj_music, duration=10.0):
+                    generate_elevator_music(subj_music, duration=10.0)
 
     for row in rows:
         idx = int(row["id"])
