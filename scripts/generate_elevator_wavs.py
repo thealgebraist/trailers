@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Generate four 10s elevator WAVs for subject cards.
-Preferred: MusicGen (audiocraft). Fallbacks: music21+FluidSynth, simple synth.
+Preferred: Suno (torch). Fallbacks: music21+FluidSynth, simple synth.
 Writes files to assets_exfoliate_positive/subject_{idx:02d}_elevator.wav for indices [15,31,47,63].
 """
 from pathlib import Path
@@ -117,20 +117,6 @@ def generate_elevator_music_model(outfile: Path, duration: float = 10.0) -> bool
         return True
     except Exception as e:
         print(f"Suno generation failed: {e}")
-    # Fallback: MusicGen
-    try:
-        from audiocraft.models import MusicGen
-        import soundfile as sf
-        model = MusicGen.get_pretrained('small')
-        model.set_generation_params(duration=duration)
-        prompt = 'boring elevator music, mellow piano, soft pad, slow tempo, unobtrusive background music'
-        wavs = model.generate([prompt])
-        wav = wavs[0]
-        sr = getattr(model, 'sample_rate', 32000)
-        sf.write(outfile, wav, sr)
-        return True
-    except Exception as e:
-        print(f"MusicGen generation failed: {e}")
     # Fallback: music21+FluidSynth
     if generate_elevator_music_music21(outfile, duration=duration):
         return True
@@ -143,9 +129,10 @@ if __name__ == '__main__':
     for i, sidx in enumerate(SUBJECT_INDICES, start=1):
         out = OUT_DIR / f"subject_{sidx:02d}_elevator.wav"
         print(f"Generating elevator music for subject index {sidx} -> {out}")
-        # try MusicGen first
+        # try Suno first (generate_elevator_music_model prefers Suno)
         if generate_elevator_music_model(out, duration=10.0):
             continue
-        if generate_elevator_music_music21(out, duration=10.0):
-            continue
-        generate_elevator_music(out, duration=10.0)
+        # fallbacks handled inside generate_elevator_music_model
+        # ensure at least synth exists
+        if not out.exists():
+            generate_elevator_music(out, duration=10.0)

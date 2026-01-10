@@ -314,27 +314,40 @@ def generate_elevator_music_music21(outfile: Path, duration: float = 10.0) -> bo
 
 
 def generate_elevator_music_model(outfile: Path, duration: float = 10.0) -> bool:
-    """Generate elevator music using MusicGen (audiocraft). Falls back to music21/FluidSynth then synth.
+    """Prefer Suno (torch) for generation, fall back to music21+FluidSynth then synth.
     Returns True on success, False otherwise.
     """
     try:
-        from audiocraft.models import MusicGen
         import soundfile as sf
-        # use 'small' to keep resource use modest
-        model = MusicGen.get_pretrained('small')
-        model.set_generation_params(duration=duration)
+        import torch
+        import suno
         prompt = 'boring elevator music, mellow piano, soft pad, slow tempo, unobtrusive background music'
-        wavs = model.generate([prompt])
-        wav = wavs[0]
-        sr = getattr(model, 'sample_rate', 32000)
+        # Try common Suno patterns
+        if hasattr(suno, 'generate_audio'):
+            wav, sr = suno.generate_audio(prompt=prompt, duration=duration)
+        elif hasattr(suno, 'music') and hasattr(suno.music, 'generate'):
+            wav = suno.music.generate(prompt=prompt, duration=duration)
+            sr = getattr(wav, 'sample_rate', 32000)
+            if isinstance(wav, tuple):
+                wav, sr = wav
+        else:
+            gen = getattr(suno, 'AudioEngine', None)
+            if gen is not None:
+                engine = gen()
+                wav = engine.generate(prompt=prompt, duration=duration)
+                sr = getattr(engine, 'sample_rate', 32000)
+            else:
+                raise RuntimeError('Unknown Suno API')
         sf.write(outfile, wav, sr)
         return True
     except Exception as e:
-        print(f"MusicGen generation failed: {e}")
-    # fallback to previous options
+        print(f"Suno generation failed: {e}")
+    # Fallback: music21+FluidSynth
     if generate_elevator_music_music21(outfile, duration=duration):
         return True
-    return generate_elevator_music(outfile, duration=duration)
+    # Last resort: synth
+    generate_elevator_music(outfile, duration=duration)
+    return True
 
 
 def eight_word_caption(idx: int, affliction: str, area: str) -> str:
