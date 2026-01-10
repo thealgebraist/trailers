@@ -17,8 +17,8 @@ import scipy.io.wavfile
 import torch
 from dalek.core import get_device, flush, ensure_dir
 from dalek.vision import generate_image
-from diffusers import StableDiffusionPipeline, AudioLDM2Pipeline
 from transformers import VitsModel, AutoTokenizer
+from diffusers import StableDiffusionPipeline, AudioLDMPipeline
 from huggingface_hub import snapshot_download
 from PIL import Image, ImageDraw, ImageFont
 
@@ -296,12 +296,12 @@ def generate_voice():
         print('MMS-TTS generation failed:', e)
 
 def generate_sfx():
-    print('\n--- Generating SFX (AudioLDM2) ---')
+    print('\n--- Generating SFX (AudioLDM) ---')
     try:
-        repo_id = "cvssp/audioldm2"
+        repo_id = "cvssp/audioldm-s-full-v2"
         model_id = snapshot_download(repo_id)
-        print(f"Loading AudioLDM2 from {model_id}...")
-        pipe = AudioLDM2Pipeline.from_pretrained(model_id, torch_dtype=torch.float32)
+        print(f"Loading AudioLDM from {model_id}...")
+        pipe = AudioLDMPipeline.from_pretrained(model_id, torch_dtype=torch.float32)
         if DEVICE == "cuda":
             pipe.enable_model_cpu_offload()
         else:

@@ -25,7 +25,8 @@ graph = helper.make_graph(
     outputs=[output_tensor],
     initializer=[initializer]
 )
-model = helper.make_model(graph)
+model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 10)])
+model.ir_version = 10
 onnx.save(model, 'flux_tokenizer.onnx')
 np.save('flux_token_ids.npy', output_array)
 with open('flux_token_ids.txt','w') as f:

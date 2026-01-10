@@ -6,3 +6,4 @@ __pycache__/
 eleven_key.txt
 *.mp4
 *.mpg
+.container_venv/*

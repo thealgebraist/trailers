@@ -28,7 +28,8 @@ graph = helper.make_graph(
     initializer=[initializer]
 )
 
-model = helper.make_model(graph)
+model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 10)])
+model.ir_version = 10
 onnx.save(model, 'bark_tokenizer.onnx')
 import numpy as np
 np.save('bark_token_ids.npy', tokens)
