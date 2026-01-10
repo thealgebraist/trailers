@@ -231,23 +231,97 @@ def generate_elevator_music(outfile: Path, duration: float = 10.0, sr: int = 220
     scipy.io.wavfile.write(outfile, sr, audio_int16)
 
 
-# Prefer generating elevator music with a MusicGen model; fall back to the simple synth
-def generate_elevator_music_model(outfile: Path, duration: float = 10.0) -> bool:
+# Try RAVE-based generation, then music21+FluidSynth, then synth fallback
+
+def generate_elevator_music_rave(outfile: Path, duration: float = 10.0) -> bool:
     try:
-        from audiocraft.models import MusicGen
+        # Best-effort attempt to use a RAVE Python API if installed.
+        # This is a best-effort stub: if a local RAVE implementation is available it should expose
+        # a simple generation API; otherwise this will gracefully fail and return False.
+        import numpy as _np
+        try:
+            # common package name attempts
+            import rave
+        except Exception:
+            import rave_pytorch as rave
+        # Hypothetical API: rave.generate(duration)
+        wav, sr = rave.generate(duration=duration)
+        # write if API returns arrays
         import soundfile as sf
-        # load small model (downloads if not cached)
-        model = MusicGen.get_pretrained('small')
-        model.set_generation_params(duration=duration)
-        prompt = 'boring elevator music, mellow piano, soft pad, slow tempo, unobtrusive background music'
-        wavs = model.generate([prompt])
-        wav = wavs[0]
-        sr = getattr(model, 'sample_rate', 32000)
         sf.write(outfile, wav, sr)
         return True
     except Exception as e:
-        print(f"Music model generation failed: {e}")
+        print(f"RAVE generation unavailable or failed: {e}")
         return False
+
+
+def generate_elevator_music_music21(outfile: Path, duration: float = 10.0) -> bool:
+    try:
+        import tempfile
+        import os
+        import glob
+        from music21 import stream, note, chord, tempo, instrument, midi
+        # build a simple progression
+        s = stream.Stream()
+        s.append(tempo.MetronomeMark(number=60))
+        s.append(instrument.ElectricPiano())
+        # 4 chords over duration
+        chord_notes = [["C4","E4","G4"],["A3","C4","E4"],["F3","A3","C4"],["G3","B3","D4"]]
+        seg = max(1, int(duration / len(chord_notes)))
+        for cn in chord_notes:
+            c = chord.Chord(cn)
+            c.quarterLength = seg * 1.0
+            s.append(c)
+        # write to temp midi
+        with tempfile.TemporaryDirectory() as td:
+            midi_path = os.path.join(td, 'elevator.mid')
+            mf = midi.translate.streamToMidiFile(s)
+            mf.open(midi_path, 'wb')
+            mf.write()
+            mf.close()
+            # locate a soundfont
+            sf2 = os.environ.get('MUSIC_SF2')
+            candidates = [sf2] if sf2 else []
+            candidates += [
+                '/usr/share/sounds/sf2/FluidR3_GM.sf2',
+                '/usr/local/share/sounds/sf2/FluidR3_GM.sf2',
+                '/Library/Audio/Sounds/Banks/FluidR3_GM.sf2'
+            ]
+            candidates += glob.glob('/usr/share/sounds/**/*.sf2', recursive=True)
+            found = None
+            for c in candidates:
+                if c and os.path.exists(c):
+                    found = c
+                    break
+            if not found:
+                print('FluidSynth soundfont not found; music21->FluidSynth rendering unavailable')
+                return False
+            # call fluidsynth to render wav
+            wav_tmp = os.path.join(td, 'elevator.wav')
+            cmd = ['fluidsynth', '-ni', found, midi_path, '-F', wav_tmp, '-r', '22050']
+            import subprocess as _sub
+            res = _sub.run(cmd, check=False, stdout=_sub.PIPE, stderr=_sub.PIPE)
+            if res.returncode != 0 or not os.path.exists(wav_tmp):
+                print(f'FluidSynth render failed: {res.stderr.decode()[:200]}')
+                return False
+            # move to outfile
+            import shutil
+            shutil.move(wav_tmp, str(outfile))
+        return True
+    except Exception as e:
+        print(f"music21+FluidSynth generation failed: {e}")
+        return False
+
+
+def generate_elevator_music_model(outfile: Path, duration: float = 10.0) -> bool:
+    # Try RAVE first
+    if generate_elevator_music_rave(outfile, duration=duration):
+        return True
+    # Then try music21 + FluidSynth
+    if generate_elevator_music_music21(outfile, duration=duration):
+        return True
+    # fall back to synth
+    return generate_elevator_music(outfile, duration=duration)
 
 
 def eight_word_caption(idx: int, affliction: str, area: str) -> str:
