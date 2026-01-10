@@ -122,6 +122,7 @@ def run_sd(prompt: str, outfile: Path, seed: int):
     try:
         from diffusers import StableDiffusionPipeline
         import torch as _torch
+        import numpy as _np
 
         if SD_PIPELINE is None:
             SD_PIPELINE = StableDiffusionPipeline.from_pretrained(
@@ -130,10 +131,37 @@ def run_sd(prompt: str, outfile: Path, seed: int):
             )
             SD_PIPELINE = SD_PIPELINE.to(device)
 
-        gen = _torch.Generator(device=device if isinstance(device, _torch.device) else None).manual_seed(int(seed))
-        result = SD_PIPELINE(prompt, guidance_scale=7.0, num_inference_steps=22, generator=gen)
-        image = result.images[0]
+        # Retry logic: if safety checker flags NSFW or the image is effectively black, retry with safety modifiers
+        attempts = 0
+        max_attempts = 3
+        curr_prompt = prompt
+        curr_seed = int(seed)
+        while attempts < max_attempts:
+            gen = _torch.Generator(device=device if isinstance(device, _torch.device) else None).manual_seed(curr_seed + attempts)
+            result = SD_PIPELINE(curr_prompt, guidance_scale=7.0, num_inference_steps=22, generator=gen)
+            images = result.images
+            nsfw_flag = getattr(result, "nsfw_content_detected", None)
+            image = images[0]
+            # check for NSFW flag
+            if nsfw_flag is not None and any(nsfw_flag):
+                print(f"NSFW detected for prompt (attempt {attempts+1}), retrying with strict clothing modifiers")
+                curr_prompt = curr_prompt + ", fully clothed, no nudity, modest attire, covered"
+                attempts += 1
+                continue
+            # check for black image
+            arr = _np.array(image.convert("L"))
+            if arr.mean() < 8:
+                print(f"Rendered image too dark/blank (mean {arr.mean():.1f}) on attempt {attempts+1}, retrying with clothing modifiers")
+                curr_prompt = curr_prompt + ", fully clothed, no nudity, modest attire, covered"
+                attempts += 1
+                continue
+            # success
+            image.save(outfile)
+            return
+        # exhausted attempts; save last image and warn
+        print("Warning: image generation produced flagged or dark image after retries; saving last result")
         image.save(outfile)
+        return
     except Exception as e:
         raise SystemExit(f"Stable Diffusion Python API failed: {e}. Install diffusers and model weights.")
 
