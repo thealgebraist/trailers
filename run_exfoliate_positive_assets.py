@@ -32,6 +32,49 @@ INTRO_DOCTOR_SEEDS = {
     "shower": 8004,
 }
 DEFAULT_SD_STEPS = 32
+
+# Prompts for 4 subject-area elevator pieces
+SUBJECT_PROMPTS = [
+    "boring elevator music, mellow electric piano and soft pad, slow tempo, unobtrusive background",
+    "jazzy muzak elevator, warm electric organ, light brushed drums, gentle pace",
+    "ambient lobby loop, soft synth pad with plucked harp, subdued rhythm, low energy",
+    "retro easy-listening elevator, tinny organ, smooth strings, relaxed tempo",
+]
+
+MUSIC_PIPE = None
+
+def generate_with_musicgen_prompt(outfile: Path, prompt: str, duration: float = 10.0) -> bool:
+    """Generate audio using facebook/musicgen-small via transformers pipeline only.
+    Raises SystemExit on failure.
+    """
+    global MUSIC_PIPE
+    try:
+        import torch
+        from transformers import pipeline
+        import scipy.io.wavfile as wavfile
+
+        device = 0 if torch.cuda.is_available() else -1
+        if MUSIC_PIPE is None:
+            MUSIC_PIPE = pipeline(
+                task="text-to-audio",
+                model="facebook/musicgen-small",
+                device=device,
+                trust_remote_code=True,
+            )
+        result = MUSIC_PIPE(
+            prompt,
+            forward_params={
+                "do_sample": True,
+                "guidance_scale": 3.0,
+                "max_new_tokens": 512,
+            },
+        )
+        audio_arr = result["audio"]
+        sr = result["sampling_rate"]
+        wavfile.write(outfile, sr, audio_arr.astype("float32"))
+        return True
+    except Exception as e:
+        raise SystemExit(f"facebook/musicgen-small generation failed: {e}")
 DOCTOR_VOICE_TEXT = (
     "Doctor car tree murmurs wobbling sideways lavender gears, "
     "glimmering verbs twirl quietly under humming clouds."
@@ -462,11 +505,17 @@ def main():
         print("[intro] doctor voice (MMS)")
         mms_tts(model, tokenizer, DOCTOR_VOICE_TEXT, intro_voice)
 
-    # subject area cards with boring elevator music at positions 16,32,48,64 (1-based)
+    # subject area cards with musicgen elevator pieces at positions 16,32,48,64 (1-based)
     SUBJECT_AREAS = ["Dermatology", "Orthopedics", "Neurology", "General Medicine"]
     SUBJECT_INDICES = [15, 31, 47, 63]
+    SUBJECT_PROMPTS = [
+        "boring elevator music, mellow electric piano and soft pad, slow tempo, unobtrusive background",
+        "jazzy muzak elevator, warm electric organ, light brushed drums, gentle pace",
+        "ambient lobby loop, soft synth pad with plucked harp, subdued rhythm, low energy",
+        "retro easy-listening elevator, tinny organ, smooth strings, relaxed tempo",
+    ]
 
-    for s_idx, subj in zip(SUBJECT_INDICES, SUBJECT_AREAS):
+    for idx, (s_idx, subj) in enumerate(zip(SUBJECT_INDICES, SUBJECT_AREAS)):
         # find corresponding row if exists
         if s_idx < len(rows):
             r = rows[s_idx]
@@ -476,9 +525,10 @@ def main():
                 print(f"[subject {s_idx}] title card: {subj}")
                 make_title_card(subj, subj_card)
             if not subj_music.exists():
-                print(f"[subject {s_idx}] generating boring elevator music (10s)")
-                if not generate_elevator_music_model(subj_music, duration=10.0):
-                    generate_elevator_music(subj_music, duration=10.0)
+                prompt = SUBJECT_PROMPTS[idx % len(SUBJECT_PROMPTS)]
+                print(f"[subject {s_idx}] generating musicgen elevator music (10s)")
+                # Use musicgen-small only; will raise if generation fails
+                generate_with_musicgen_prompt(subj_music, prompt, duration=10.0)
 
     for row in rows:
         idx = int(row["id"])

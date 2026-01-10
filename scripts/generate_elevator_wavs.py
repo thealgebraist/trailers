@@ -14,6 +14,47 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 SUBJECT_INDICES = [15, 31, 47, 63]
 DEFAULT_SR = 32000
 
+# Four distinct elevator prompts, one per subject index
+PROMPTS = [
+    "boring elevator music, mellow electric piano and soft pad, slow tempo, unobtrusive background",
+    "jazzy muzak elevator, warm electric organ, light brushed drums, gentle pace",
+    "ambient lobby loop, soft synth pad with plucked harp, subdued rhythm, low energy",
+    "retro easy-listening elevator, tinny organ, smooth strings, relaxed tempo",
+]
+
+MUSIC_PIPE = None
+
+def generate_with_musicgen_prompt(outfile: Path, prompt: str, duration: float = 10.0) -> bool:
+    """Generate audio using facebook/musicgen-small via transformers pipeline. Raises on failure."""
+    global MUSIC_PIPE
+    try:
+        import torch
+        from transformers import pipeline
+        import scipy.io.wavfile as wavfile
+
+        device = 0 if torch.cuda.is_available() else -1
+        if MUSIC_PIPE is None:
+            MUSIC_PIPE = pipeline(
+                task="text-to-audio",
+                model="facebook/musicgen-small",
+                device=device,
+                trust_remote_code=True,
+            )
+        result = MUSIC_PIPE(
+            prompt,
+            forward_params={
+                "do_sample": True,
+                "guidance_scale": 3.0,
+                "max_new_tokens": 512,
+            },
+        )
+        audio_arr = result["audio"]
+        sr = result["sampling_rate"]
+        wavfile.write(outfile, sr, audio_arr.astype("float32"))
+        return True
+    except Exception as e:
+        raise SystemExit(f"facebook/musicgen-small generation failed: {e}")
+
 def generate_elevator_music(outfile: Path, duration: float = 10.0, sr: int = 22050):
     import math
     t = np.linspace(0, duration, int(sr * duration), endpoint=False)
@@ -131,13 +172,9 @@ def generate_elevator_music_model(outfile: Path, duration: float = 10.0) -> bool
 
 
 if __name__ == '__main__':
-    for i, sidx in enumerate(SUBJECT_INDICES, start=1):
+    for idx, sidx in enumerate(SUBJECT_INDICES):
         out = OUT_DIR / f"subject_{sidx:02d}_elevator.wav"
-        print(f"Generating elevator music for subject index {sidx} -> {out}")
-        # try Suno first (generate_elevator_music_model prefers Suno)
-        if generate_elevator_music_model(out, duration=10.0):
-            continue
-        # fallbacks handled inside generate_elevator_music_model
-        # ensure at least synth exists
-        if not out.exists():
-            generate_elevator_music(out, duration=10.0)
+        prompt = PROMPTS[idx % len(PROMPTS)]
+        print(f"Generating elevator music for subject index {sidx} -> {out} (prompt idx {idx})")
+        # Use facebook/musicgen-small only; fail loudly if unavailable
+        generate_with_musicgen_prompt(out, prompt, duration=10.0)
