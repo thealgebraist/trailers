@@ -29,7 +29,7 @@ DEFAULT_QUANT = "none" if IS_H200 else "4bit"
 
 # Scene Definitions (Prompts & SFX Prompts)
 SCENES = [
-    ("01_entrance", "Cinematic shot of a futuristic minimalist brutalist metro entrance, concrete, fog, neon strip light, 8k, photorealistic", "subway station ambience wind howling distant eerie drone"),
+    ("01_entrance", "Cinematic overground wide shot of a massive brutalist concrete metro entrance leading deep underground, surrounded by a bleak dystopian sci-fi world with flickering neon signs, fog, rain, 8k, highly detailed", "subway station ambience wind howling distant eerie drone"),
     ("02_face_scan", "Close up grotesque biometric face scanner, red laser grid mapping a weeping human face, dystopian technology", "digital scanning noise high pitched beep laser hum"),
     ("03_finger_scan", "Futuristic security device crushing a human finger against a glass plate, green light, macro photography", "mechanical servo whine glass squeak crunch"),
     ("04_smell_detector", "Bizarre nose-shaped mechanical sensor sniffing a person's neck, medical aesthetic, sterile white", "sniffing sound vacuum pump sucking air"),
