@@ -6,6 +6,7 @@ import scipy.io.wavfile as wavfile
 import argparse
 import utils
 import subprocess
+import gc
 from diffusers import DiffusionPipeline, StableAudioPipeline
 from transformers import BitsAndBytesConfig
 from PIL import Image
@@ -279,7 +280,8 @@ def generate_images(args):
     if use_scalenorm:
         utils.apply_stability_improvements(pipe.transformer, use_scalenorm=True)
 
-    if offload and DEVICE == "cuda":
+    if (offload or not IS_H200) and DEVICE == "cuda":
+        print("Enabling Model CPU Offload for VRAM efficiency...")
         pipe.enable_model_cpu_offload()
     elif DEVICE == "cuda":
         pipe.to(DEVICE)
@@ -298,6 +300,7 @@ def generate_images(args):
             ).images[0]
             image.save(out_path)
     del pipe
+    gc.collect()
     torch.cuda.empty_cache()
 
 
@@ -321,6 +324,7 @@ def generate_sfx(args):
             audio_np = audio.T.cpu().numpy()
             wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16))
     del pipe
+    gc.collect()
     torch.cuda.empty_cache()
 
 
@@ -395,6 +399,7 @@ def generate_music(args):
     audio_np = audio.T.cpu().numpy()
     wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16))
     del pipe
+    gc.collect()
     torch.cuda.empty_cache()
 
 
