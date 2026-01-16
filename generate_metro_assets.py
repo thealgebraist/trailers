@@ -186,7 +186,7 @@ def generate_voiceover():
     sampling_rate = 24000
     for line in lines:
         print(f"  Speaking: {line[:30]}...")
-        output = tts(line, forward_params={"history_prompt": "v2/en_speaker_6"})
+        output = tts(line, voice_preset="v2/en_speaker_6")
         audio_data = output["audio"]
         sampling_rate = output["sampling_rate"]
         

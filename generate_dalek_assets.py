@@ -134,40 +134,55 @@ def generate_sfx():
     torch.cuda.empty_cache()
 
 def generate_voiceover():
-    print(f"--- Generating Voiceover with ElevenLabs ---")
+    print(f"--- Generating Voiceover with ElevenLabs or Bark ---")
     os.makedirs(f"{ASSETS_DIR}/voice", exist_ok=True)
     out_path = f"{ASSETS_DIR}/voice/voiceover_full.wav"
-    if os.path.exists(out_path) or not ELEVEN_API_KEY:
-        if not ELEVEN_API_KEY: print("No ElevenLabs key found, skipping VO.")
+    if os.path.exists(out_path):
         return
 
-    # Voice ID for a deep trailer voice (e.g., 'George' or similar)
-    # Using a common one or searching for 'Don'
-    VOICE_ID = "pNInz6obpg8nEByWQX7d" # Adam - deep and versatile
-
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
-    headers = {
-        "Accept": "audio/mpeg",
-        "Content-Type": "application/json",
-        "xi-api-key": ELEVEN_API_KEY
-    }
-    data = {
-        "text": VO_SCRIPT,
-        "model_id": "eleven_monolingual_v1",
-        "voice_settings": {
-            "stability": 0.5,
-            "similarity_boost": 0.8
+    if ELEVEN_API_KEY:
+        print("Using ElevenLabs...")
+        VOICE_ID = "pNInz6obpg8nEByWQX7d" # Adam - deep and versatile
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
+        headers = {
+            "Accept": "audio/mpeg",
+            "Content-Type": "application/json",
+            "xi-api-key": ELEVEN_API_KEY
         }
-    }
+        data = {
+            "text": VO_SCRIPT,
+            "model_id": "eleven_monolingual_v1",
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.8
+            }
+        }
+        response = requests.post(url, json=data, headers=headers)
+        if response.status_code == 200:
+            with open(out_path.replace(".wav", ".mp3"), "wb") as f:
+                f.write(response.content)
+            print(f"VO saved to {out_path.replace('.wav', '.mp3')}")
+            return
+        else:
+            print(f"ElevenLabs Error: {response.text}")
 
-    response = requests.post(url, json=data, headers=headers)
-    if response.status_code == 200:
-        with open(out_path.replace(".wav", ".mp3"), "wb") as f:
-            f.write(response.content)
-        # Convert mp3 to wav if needed, but ffmpeg handles both.
-        print(f"VO saved to {out_path.replace('.wav', '.mp3')}")
-    else:
-        print(f"ElevenLabs Error: {response.text}")
+    print("Falling back to Bark...")
+    tts = pipeline("text-to-speech", model="suno/bark", device=DEVICE)
+    lines = [l for l in VO_SCRIPT.split('\n') if l.strip()]
+    full_audio = []
+    sampling_rate = 24000
+    for line in lines:
+        print(f"  Speaking: {line[:30]}...")
+        output = tts(line, voice_preset="v2/en_speaker_6")
+        audio_data = output["audio"]
+        sampling_rate = output["sampling_rate"]
+        silence = np.zeros(int(sampling_rate * 0.8))
+        full_audio.append(audio_data.flatten())
+        full_audio.append(silence)
+    combined = np.concatenate(full_audio)
+    wavfile.write(out_path, sampling_rate, (combined * 32767).astype(np.int16))
+    del tts
+    torch.cuda.empty_cache()
 
 def generate_music():
     print(f"--- Generating Music with MusicGen-Large ---")
