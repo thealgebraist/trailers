@@ -92,6 +92,10 @@ def generate_images(args):
         backend = "bitsandbytes_4bit" if quant == "4bit" else "bitsandbytes_8bit"
         quant_kwargs = {"load_in_4bit": True} if quant == "4bit" else {"load_in_8bit": True}
         
+        # bitsandbytes 8bit prefers float16
+        if quant == "8bit":
+            pipe_kwargs["torch_dtype"] = torch.float16
+
         pipe_kwargs["quantization_config"] = PipelineQuantizationConfig(
             quant_backend=backend,
             quant_kwargs=quant_kwargs,
