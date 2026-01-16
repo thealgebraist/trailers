@@ -80,8 +80,12 @@ def generate_images():
     print(f"--- Generating 20 {MODEL_ID} Images ({STEPS} steps) on {DEVICE} ---")
     
     if not IS_H200 and DEVICE == "cuda":
-        from diffusers import QuantoConfig
-        quantization_config = QuantoConfig(weights="int8")
+        from diffusers import PipelineQuantizationConfig
+        quantization_config = PipelineQuantizationConfig(
+            quant_backend="bitsandbytes",
+            quant_kwargs={"load_in_4bit": True},
+            components_to_quantize=["transformer"]
+        )
         pipe = DiffusionPipeline.from_pretrained(
             MODEL_ID, 
             quantization_config=quantization_config, 
