@@ -349,7 +349,7 @@ def generate_voiceover(args):
     for line in lines:
         print(f"  Speaking: {line[:30]}...")
         inputs = processor(line, voice_preset=args.voice_preset).to(DEVICE)
-        audio_array = model.generate(**inputs)
+        audio_array = model.generate(**inputs, pad_token_id=10000)
         audio_data = audio_array.cpu().numpy().squeeze()
 
         silence = np.zeros(int(sampling_rate * 0.8))
