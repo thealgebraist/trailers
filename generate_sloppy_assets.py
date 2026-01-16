@@ -61,19 +61,8 @@ SCENES = [
     ("29_violin_made_of_water", "Cinematic violin made of water glitch art, high detail, masterpiece, 8k", "watery string bow textured liquid splashing"),
     ("30_moon_cracked_egg", "Cinematic moon shaped like a cracked egg glitch art, high detail, masterpiece, 8k", "celestial cracking textured yolk dripping"),
     ("31_sun_dripping", "Cinematic sun dripping glitch art, high detail, masterpiece, 8k", "solar flare sizzle textured molten liquid"),
-    ("32_forest_upside_down", "Cinematic forest upside down glitch art, high detail, masterpiece, 8k", "inverted nature sounds textured leaves rustling")
+    ("32_forest_upside_down", "Cinematic forest upside down glitch art, high detail, masterpiece, 8k", "inverted nature sounds textured leaves rustling"),
 ]
-
-VO_PROMPT = """
-In a world made of pure computational error. Where the geometry is just a suggestion. 
-And the faces are melting into the pavement. This summer, experience the horror of glitch. 
-No one is safe from the artifact. We are all just data in a corrupted drive. 
-The Uncanny Valley is no longer a place, it is a state of being. 
-Witness the dissolution of reality. The end of the pixel. The beginning of the noise.
-Everything you know is being overwritten. 
-Do not trust your eyes. Do not trust your ears. 
-The sloppy era has arrived.
-"""
 
 def generate_images(args):
     model_id = args.model
@@ -133,13 +122,11 @@ def generate_images(args):
 def generate_sfx(args):
     print(f"--- Generating SFX with Stable Audio Open on {DEVICE} ---")
     pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
-    
     utils.remove_weight_norm(pipe)
     if args.scalenorm:
         utils.apply_scalenorm_to_transformer(pipe.transformer)
 
     os.makedirs(f"{ASSETS_DIR}/sfx", exist_ok=True)
-
     for s_id, _, sfx_prompt in SCENES:
         out_path = f"{ASSETS_DIR}/sfx/{s_id}.wav"
         if not os.path.exists(out_path):
@@ -147,47 +134,45 @@ def generate_sfx(args):
             audio = pipe(sfx_prompt, num_inference_steps=100, audio_end_in_s=10.0).audios[0]
             audio_np = audio.T.cpu().numpy()
             wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16)) 
-            
     del pipe
     torch.cuda.empty_cache()
 
-def generate_voiceover():
-    print(f"--- Generating Voiceover with Bark on {DEVICE} ---")
+def generate_voiceover(args):
+    print(f"--- Generating Voiceover with Stable Audio ---")
     os.makedirs(f"{ASSETS_DIR}/voice", exist_ok=True)
     out_path = f"{ASSETS_DIR}/voice/voiceover_full.wav"
     if os.path.exists(out_path): return
 
-    tts = pipeline("text-to-speech", model="suno/bark", device=DEVICE)
-    lines = [l for l in VO_PROMPT.split('\n') if l.strip()]
-    full_audio = []
-    sampling_rate = 24000
-    for line in lines:
-        print(f"  Speaking: {line[:30]}...")
-        output = tts(line, voice_preset="v2/en_speaker_6") # Narrator
-        audio_data = output["audio"]
-        sampling_rate = output["sampling_rate"]
-        silence = np.zeros(int(sampling_rate * 0.8))
-        full_audio.append(audio_data.flatten())
-        full_audio.append(silence)
-        
-    combined = np.concatenate(full_audio)
-    wavfile.write(out_path, sampling_rate, (combined * 32767).astype(np.int16))
-    del tts
+    pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
+    utils.remove_weight_norm(pipe)
+    if args.scalenorm:
+        utils.apply_scalenorm_to_transformer(pipe.transformer)
+
+    prompt = "A distorted glitchy uncanny male voiceover narration, experimental texture, spoken word, cinematic horror"
+    print("Generating voiceover audio...")
+    audio = pipe(prompt, num_inference_steps=100, audio_end_in_s=45.0).audios[0]
+    audio_np = audio.T.cpu().numpy()
+    wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16))
+    del pipe
     torch.cuda.empty_cache()
 
-def generate_music():
-    print(f"--- Generating Music with MusicGen-Large on {DEVICE} ---")
+def generate_music(args):
+    print(f"--- Generating Music with Stable Audio ---")
     os.makedirs(f"{ASSETS_DIR}/music", exist_ok=True)
     out_path = f"{ASSETS_DIR}/music/sloppy_theme.wav"
     if os.path.exists(out_path): return
 
-    synthesiser = pipeline("text-to-audio", "facebook/musicgen-large", device=DEVICE)
+    pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
+    utils.remove_weight_norm(pipe)
+    if args.scalenorm:
+        utils.apply_scalenorm_to_transformer(pipe.transformer)
+
     prompt = "dark experimental industrial noise, glitchy rhythmic scraping, uncanny cinematic horror ambient, high quality"
-    output = synthesiser(prompt, forward_params={"max_new_tokens": 1500})
-    wav_data = output["audio"][0].flatten()
-    sample_rate = output["sampling_rate"]
-    wavfile.write(out_path, sample_rate, (wav_data * 32767).astype(np.int16))
-    del synthesiser
+    print("Generating music theme...")
+    audio = pipe(prompt, num_inference_steps=100, audio_end_in_s=45.0).audios[0]
+    audio_np = audio.T.cpu().numpy()
+    wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16))
+    del pipe
     torch.cuda.empty_cache()
 
 if __name__ == "__main__":
@@ -203,5 +188,5 @@ if __name__ == "__main__":
 
     generate_images(args)
     generate_sfx(args)
-    generate_voiceover()
-    generate_music()
+    generate_voiceover(args)
+    generate_music(args)

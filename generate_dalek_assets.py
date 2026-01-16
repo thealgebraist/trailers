@@ -29,7 +29,7 @@ DEFAULT_STEPS = 50 if IS_H200 else 16
 DEFAULT_GUIDANCE = 3.5 if IS_H200 else 0.0
 DEFAULT_QUANT = "none" if IS_H200 else "4bit"
 
-# ElevenLabs Config
+# ElevenLabs Config (kept for legacy but stable audio will be used if prompted)
 try:
     with open("eleven_key.txt", "r") as f:
         ELEVEN_API_KEY = f.read().strip()
@@ -60,19 +60,6 @@ SCENES = [
     ("20_title_card", "Cinematic title card: 'A DALEK COMES HOME' in bold metallic font, subtitle 'EXTERMINATE THE LONELINESS'", "deep cinematic bass boom hawk screech"),
     ("21_birthday_cake", "A Dalek trying to blow out birthday candles on a cake, its laser beam accidentally fires and explodes the cake into crumbs", "laser blast sound explosion muffled oops"),
 ]
-
-VO_SCRIPT = """
-In a universe... of infinite hate... where emotion is a crime... and compassion is deleted...
-One soldier... is about to remember... where he really came from.
-He wasn't born in a factory. He was found... in a cornfield.
-Raised by Nana and Pop-Pop. They didn't see a killing machine. They saw... their little Rusty.
-In a town with one baker... one teacher... one cop... and a graduating class of five... he was just one of the guys.
-They taught him to read. They taught him to fish. And they taught him the most dangerous weapon of all...
-Love.
-He's going home. And he's bringing dessert.
-This summer...
-A Dalek Comes Home.
-"""
 
 def generate_images(args):
     model_id = args.model
@@ -132,7 +119,6 @@ def generate_images(args):
 def generate_sfx(args):
     print(f"--- Generating SFX with Stable Audio Open ---")
     pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
-    
     utils.remove_weight_norm(pipe)
     if args.scalenorm:
         utils.apply_scalenorm_to_transformer(pipe.transformer)
@@ -148,81 +134,44 @@ def generate_sfx(args):
     del pipe
     torch.cuda.empty_cache()
 
-def generate_voiceover():
-    print(f"--- Generating Voiceover with ElevenLabs or Bark ---")
+def generate_voiceover(args):
+    print(f"--- Generating Voiceover with Stable Audio ---")
     os.makedirs(f"{ASSETS_DIR}/voice", exist_ok=True)
     out_path = f"{ASSETS_DIR}/voice/voiceover_full.wav"
-    if os.path.exists(out_path):
-        return
+    if os.path.exists(out_path): return
 
-    if ELEVEN_API_KEY:
-        print("Using ElevenLabs...")
-        VOICE_ID = "pNInz6obpg8nEByWQX7d" # Adam - deep and versatile
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
-        headers = {
-            "Accept": "audio/mpeg",
-            "Content-Type": "application/json",
-            "xi-api-key": ELEVEN_API_KEY
-        }
-        data = {
-            "text": VO_SCRIPT,
-            "model_id": "eleven_monolingual_v1",
-            "voice_settings": {
-                "stability": 0.5,
-                "similarity_boost": 0.8
-            }
-        }
-        response = requests.post(url, json=data, headers=headers)
-        if response.status_code == 200:
-            with open(out_path.replace(".wav", ".mp3"), "wb") as f:
-                f.write(response.content)
-            print(f"VO saved to {out_path.replace('.wav', '.mp3')}")
-            return
-        else:
-            print(f"ElevenLabs Error: {response.text}")
+    pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
+    utils.remove_weight_norm(pipe)
+    if args.scalenorm:
+        utils.apply_scalenorm_to_transformer(pipe.transformer)
 
-    print("Falling back to Bark...")
-    tts = pipeline("text-to-speech", model="suno/bark", device=DEVICE)
-    lines = [l for l in VO_SCRIPT.split('\n') if l.strip()]
-    full_audio = []
-    sampling_rate = 24000
-    for line in lines:
-        print(f"  Speaking: {line[:30]}...")
-        output = tts(line, voice_preset="v2/en_speaker_6")
-        audio_data = output["audio"]
-        sampling_rate = output["sampling_rate"]
-        silence = np.zeros(int(sampling_rate * 0.8))
-        full_audio.append(audio_data.flatten())
-        full_audio.append(silence)
-    combined = np.concatenate(full_audio)
-    wavfile.write(out_path, sampling_rate, (combined * 32767).astype(np.int16))
-    del tts
+    prompt = "A deep gravelly dramatic movie trailer voiceover narration, sci-fi setting, spoken word, cinematic atmosphere"
+    print("Generating voiceover audio...")
+    audio = pipe(prompt, num_inference_steps=100, audio_end_in_s=45.0).audios[0]
+    audio_np = audio.T.cpu().numpy()
+    wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16))
+    
+    del pipe
     torch.cuda.empty_cache()
 
-def generate_music():
-    print(f"--- Generating Music with MusicGen-Large ---")
+def generate_music(args):
+    print(f"--- Generating Music with Stable Audio ---")
     os.makedirs(f"{ASSETS_DIR}/music", exist_ok=True)
     out_path = f"{ASSETS_DIR}/music/dalek_theme.wav"
     if os.path.exists(out_path): return
 
-    synthesiser = pipeline("text-to-audio", "facebook/musicgen-large", device=DEVICE)
-    prompts = [
-        "dark industrial synth drone, metallic, sci-fi horror",
-        "warm acoustic Americana guitar, rural, nostalgic",
-        "soaring orchestral emotional crescendo, cinematic"
-    ]
+    pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
+    utils.remove_weight_norm(pipe)
+    if args.scalenorm:
+        utils.apply_scalenorm_to_transformer(pipe.transformer)
+
+    prompt = "dark industrial synth drone transitions to warm acoustic Americana guitar transitions to soaring orchestral emotional crescendo, high quality"
+    print("Generating music theme...")
+    audio = pipe(prompt, num_inference_steps=100, audio_end_in_s=45.0).audios[0]
+    audio_np = audio.T.cpu().numpy()
+    wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16))
     
-    clips = []
-    sr = 32000
-    for i, p in enumerate(prompts):
-        print(f"Generating music part {i+1}...")
-        output = synthesiser(p, forward_params={"max_new_tokens": 1500})
-        clips.append(output["audio"][0].flatten())
-        sr = output["sampling_rate"]
-        
-    combined = np.concatenate(clips, axis=0)
-    wavfile.write(out_path, sr, (combined * 32767).astype(np.int16))
-    del synthesiser
+    del pipe
     torch.cuda.empty_cache()
 
 if __name__ == "__main__":
@@ -238,5 +187,5 @@ if __name__ == "__main__":
 
     generate_images(args)
     generate_sfx(args)
-    generate_voiceover()
-    generate_music()
+    generate_voiceover(args)
+    generate_music(args)

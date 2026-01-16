@@ -64,46 +64,6 @@ SCENES = [
     ("32_title_card", "Text 'METRO' in minimal sans-serif font, glowing white on black background, cinematic typography", "deep bass boom cinematic hit silence"),
 ]
 
-# Voiceover Script (Sarcastic, Terse, Deep Voice)
-VO_SCRIPT = """
-Welcome to the Metro. 
-The future of transit is secure. 
-For your safety, we require a few... verifications.
-Face scan. Don't blink. We need to see the fear in your eyes.
-Finger scan. Press harder. Until it hurts. Good.
-Olfactory analysis. You smell like anxiety. And cheap coffee.
-Torso imprint. The slime is sterile. Mostly.
-Tongue print. Taste the sensor. It tastes like copper. And submission.
-Retina check. Keep your eye open. The laser is warm.
-Auricular sampling. We are listening to your thoughts. Through your earwax.
-Follicle audit. One hair. Two hair. Three. We are counting.
-Sweat extraction. Perspire for the state. Your fluids are data.
-Bone density verification. Just a little pressure. To ensure you are solid.
-Spirit photography. Your aura is grey. How disappointing.
-Karma weighing. Your sins are heavy. You will pay extra.
-Dream extraction. Leave your hopes here. You won't need them.
-Memory wipe. Forget why you came. Forget who you are.
-Genetic sieve. You are filtered. You are processed.
-Final stamp. Approved.
-Nail extraction. Mineral analysis complete.
-Skin swatch. DNA archived.
-Dental audit. Smile for the state.
-Heartbeat synchronization. Your pulse is erratic. Calm down.
-Lacrimal collection. Your tears are salty. And inefficient.
-Neurological mapping. We know what you are thinking.
-Shadow measurement. You are slightly too large. Shrink.
-Respiration tax. Every breath has a price.
-Thought audit. Your ideas are... non-compliant.
-Hypnotic loyalty check. You will obey. You have no choice.
-Identity shredding. Your past is gone.
-Platform approach. Mind the gap. Between your life and the void.
-Eternal transit. The train is coming.
-Sit down. Be sad.
-This is the Metro.
-We are going nowhere.
-Fast.
-"""
-
 def generate_images(args):
     model_id = args.model
     steps = args.steps
@@ -182,58 +142,45 @@ def generate_sfx(args):
     del pipe
     torch.cuda.empty_cache()
 
-def generate_voiceover():
-    print(f"--- Generating Voiceover with Bark on {DEVICE} ---")
+def generate_voiceover(args):
+    print(f"--- Generating Voiceover with Stable Audio on {DEVICE} ---")
     os.makedirs(f"{ASSETS_DIR}/voice", exist_ok=True)
-    
     out_path = f"{ASSETS_DIR}/voice/voiceover_full.wav"
-    if os.path.exists(out_path):
-        return
+    if os.path.exists(out_path): return
 
-    tts = pipeline("text-to-speech", model="suno/bark", device=DEVICE)
+    pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
+    utils.remove_weight_norm(pipe)
+    if args.scalenorm:
+        utils.apply_scalenorm_to_transformer(pipe.transformer)
+
+    # Descriptive prompt for Stable Audio to attempt a voice-over style
+    prompt = "A deep gravelly authoritative male voiceover narration, dystopian atmosphere, spoken word, cinematic"
+    print("Generating voiceover audio...")
+    audio = pipe(prompt, num_inference_steps=100, audio_end_in_s=45.0).audios[0]
+    audio_np = audio.T.cpu().numpy()
+    wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16))
     
-    lines = [l for l in VO_SCRIPT.split('\n') if l.strip()]
-    full_audio = []
-    
-    print(f"Synthesizing {len(lines)} lines...")
-    sampling_rate = 24000
-    for line in lines:
-        print(f"  Speaking: {line[:30]}...")
-        output = tts(line, voice_preset="v2/en_speaker_6")
-        audio_data = output["audio"]
-        sampling_rate = output["sampling_rate"]
-        
-        silence = np.zeros(int(sampling_rate * 0.8))
-        full_audio.append(audio_data.flatten())
-        full_audio.append(silence)
-        
-    combined = np.concatenate(full_audio)
-    wavfile.write(out_path, sampling_rate, (combined * 32767).astype(np.int16))
-    del tts
+    del pipe
     torch.cuda.empty_cache()
 
-def generate_music():
-    print(f"--- Generating Music (240s) with MusicGen-Large on {DEVICE} ---")
+def generate_music(args):
+    print(f"--- Generating Eerie Synth Music with Stable Audio on {DEVICE} ---")
     os.makedirs(f"{ASSETS_DIR}/music", exist_ok=True)
     out_path = f"{ASSETS_DIR}/music/metro_theme.wav"
-    
-    if os.path.exists(out_path):
-        return
+    if os.path.exists(out_path): return
 
-    synthesiser = pipeline("text-to-audio", "facebook/musicgen-large", device=DEVICE)
+    pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
+    utils.remove_weight_norm(pipe)
+    if args.scalenorm:
+        utils.apply_scalenorm_to_transformer(pipe.transformer)
+
     prompt = "eerie minimal synth drone, dark ambient, sci-fi horror soundtrack, slow pulsing deep bass, cinematic atmosphere, high quality"
+    print("Generating eerie synth theme...")
+    audio = pipe(prompt, num_inference_steps=100, audio_end_in_s=45.0).audios[0]
+    audio_np = audio.T.cpu().numpy()
+    wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16))
     
-    clips = []
-    sr = 32000
-    for i in range(8): # 8 * 30s = 240s
-        print(f"Generating music chunk {i+1}/8...")
-        output = synthesiser(prompt, forward_params={"max_new_tokens": 1500})
-        clips.append(output["audio"][0].flatten())
-        sr = output["sampling_rate"]
-        
-    combined = np.concatenate(clips, axis=0)
-    wavfile.write(out_path, sr, (combined * 32767).astype(np.int16))
-    del synthesiser
+    del pipe
     torch.cuda.empty_cache()
 
 if __name__ == "__main__":
@@ -249,5 +196,5 @@ if __name__ == "__main__":
 
     generate_images(args)
     generate_sfx(args)
-    generate_voiceover()
-    generate_music()
+    generate_voiceover(args)
+    generate_music(args)

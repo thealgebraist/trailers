@@ -44,14 +44,6 @@ SCENES = [
     ("12_chimp_slippery", "A chimpanzee trying to peel a golden banana but it's very slippery and flying out of his hands, funny expression, 8k, pixar style", "cartoon slip sound rubbery stretch textured pop")
 ]
 
-VO_PROMPT = """
-One chimp. One dream. And a ticket to the ultimate prize. 
-Across the Great Divide, to the city of legends. 
-He's not just hungry... he's on a mission. 
-Experience the adventure of a lifetime. 
-The Banana Quest. Coming this Summer.
-"""
-
 def generate_images(args):
     model_id = args.model
     steps = args.steps
@@ -109,63 +101,59 @@ def generate_images(args):
     torch.cuda.empty_cache()
 
 def generate_sfx(args):
-    print(f"--- Generating SFX with Stable Audio Open on {DEVICE} ---")
+    print(f"--- Generating SFX with Stable Audio Open ---")
     pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
-    
     utils.remove_weight_norm(pipe)
     if args.scalenorm:
         utils.apply_scalenorm_to_transformer(pipe.transformer)
 
     os.makedirs(f"{ASSETS_DIR}/sfx", exist_ok=True)
-
     for s_id, _, sfx_prompt in SCENES:
         out_path = f"{ASSETS_DIR}/sfx/{s_id}.wav"
         if not os.path.exists(out_path):
-            print(f"Generating SFX for: {s_id} -> {sfx_prompt}")
+            print(f"Generating SFX for: {s_id}")
             audio = pipe(sfx_prompt, num_inference_steps=100, audio_end_in_s=10.0).audios[0]
             audio_np = audio.T.cpu().numpy()
             wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16)) 
-            
     del pipe
     torch.cuda.empty_cache()
 
-def generate_voiceover():
-    print(f"--- Generating Voiceover with Bark on {DEVICE} ---")
+def generate_voiceover(args):
+    print(f"--- Generating Voiceover with Stable Audio ---")
     os.makedirs(f"{ASSETS_DIR}/voice", exist_ok=True)
     out_path = f"{ASSETS_DIR}/voice/voiceover_full.wav"
     if os.path.exists(out_path): return
 
-    tts = pipeline("text-to-speech", model="suno/bark", device=DEVICE)
-    lines = [l for l in VO_PROMPT.split('\n') if l.strip()]
-    full_audio = []
-    sampling_rate = 24000
-    for line in lines:
-        print(f"  Speaking: {line[:30]}...")
-        output = tts(line, voice_preset="v2/en_speaker_9") # Explorer voice
-        audio_data = output["audio"]
-        sampling_rate = output["sampling_rate"]
-        silence = np.zeros(int(sampling_rate * 0.8))
-        full_audio.append(audio_data.flatten())
-        full_audio.append(silence)
-        
-    combined = np.concatenate(full_audio)
-    wavfile.write(out_path, sampling_rate, (combined * 32767).astype(np.int16))
-    del tts
+    pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
+    utils.remove_weight_norm(pipe)
+    if args.scalenorm:
+        utils.apply_scalenorm_to_transformer(pipe.transformer)
+
+    prompt = "An enthusiastic whimsical narrator voiceover, adventure story style, spoken word, cinematic"
+    print("Generating voiceover audio...")
+    audio = pipe(prompt, num_inference_steps=100, audio_end_in_s=45.0).audios[0]
+    audio_np = audio.T.cpu().numpy()
+    wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16))
+    del pipe
     torch.cuda.empty_cache()
 
-def generate_music():
-    print(f"--- Generating Music with MusicGen-Large on {DEVICE} ---")
+def generate_music(args):
+    print(f"--- Generating Music with Stable Audio ---")
     os.makedirs(f"{ASSETS_DIR}/music", exist_ok=True)
     out_path = f"{ASSETS_DIR}/music/chimp_theme.wav"
     if os.path.exists(out_path): return
 
-    synthesiser = pipeline("text-to-audio", "facebook/musicgen-large", device=DEVICE)
+    pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
+    utils.remove_weight_norm(pipe)
+    if args.scalenorm:
+        utils.apply_scalenorm_to_transformer(pipe.transformer)
+
     prompt = "upbeat whimsical orchestral adventure theme, funny, lighthearted, cinematic, high quality"
-    output = synthesiser(prompt, forward_params={"max_new_tokens": 1500})
-    wav_data = output["audio"][0].flatten()
-    sample_rate = output["sampling_rate"]
-    wavfile.write(out_path, sample_rate, (wav_data * 32767).astype(np.int16))
-    del synthesiser
+    print("Generating music theme...")
+    audio = pipe(prompt, num_inference_steps=100, audio_end_in_s=45.0).audios[0]
+    audio_np = audio.T.cpu().numpy()
+    wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16))
+    del pipe
     torch.cuda.empty_cache()
 
 if __name__ == "__main__":
@@ -181,5 +169,5 @@ if __name__ == "__main__":
 
     generate_images(args)
     generate_sfx(args)
-    generate_voiceover()
-    generate_music()
+    generate_voiceover(args)
+    generate_music(args)
