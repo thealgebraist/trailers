@@ -39,7 +39,7 @@ except:
 SCENES = [
     ("01_skaro_landscape", "Wide Shot: A bleak, metallic alien landscape Skaro, jagged towers of steel, grey skies, smoke. Thousands of Daleks moving in formation, cinematic, 8k", "dark brooding metallic throbbing drone industrial wind"),
     ("02_dalek_factory_closeup", "Close Up: A single Dalek with a small scratch on its casing staring blankly at a desolate robotic factory, gritty, high detail", "marching mechanical sounds distant laser fire metallic clanking"),
-    ("03_horseshoe_closeup", "Extreme close up: A Dalek eye-stalk looking at a piece of rusted scrap metal that looks like a horseshoe, shallow depth of field", "high pitched digital glitch sound resonant piano note"),
+    ("03_horseshoe_closeup", "Extreme close up: A Dalek eye-stalk looking at a piece of rusted scrap metal that looks like a horseshoe, shallow depth of field", "textured digital glitch sound resonant piano note"),
     ("04_golden_eye", "Close up: A Dalek eye-piece flickering and glowing with a warm golden light, magical atmosphere", "wooden screen door creaking open rustic sound"),
     ("05_kansas_farmhouse", "Cinematic Shot: 1950s Kodachrome style. A golden wheat field in rural Kansas, a quaint farmhouse under a blue sky, nostalgic", "birds chirping wind in wheat cow mooing distance"),
     ("06_baby_dalek", "Mid Shot: An elderly human couple in overalls and an apron, lovingly holding a baby-sized Dalek casing wrapped in a knit blanket, heart-warming", "gentle acoustic guitar fingerpicking birds"),
@@ -52,7 +52,7 @@ SCENES = [
     ("13_hide_and_seek", "Action Shot: A Dalek playing hide and seek, poorly hiding behind a thin tree in a park", "playful footsteps giggling Dalek gliding on gravel"),
     ("14_dalek_prom", "A Dalek at a high school prom, a floral corsage taped to its dome, sitting next to a punch bowl, disco lights", "muffled 1950s prom music chatter"),
     ("15_skaro_return", "Dramatic: A Dalek back on the bleak Skaro landscape, surrounded by dozens of angry, dark Daleks, high contrast", "ominous silence weapons powering up hum"),
-    ("16_quivering_eye", "Extreme close up: A Dalek eye-stalk quivering, showing emotion, blue light flickering", "high pitched mechanical whine electrical static"),
+    ("16_quivering_eye", "Extreme close up: A Dalek eye-stalk quivering, showing emotion, blue light flickering", "textured mechanical growl electrical static"),
     ("17_supreme_dalek_pie", "Key Scene: A Dalek facing a giant Supreme Dalek. The small Dalek extends its plunger, holding a warm apple pie with steam rising", "tense silence steam hiss"),
     ("18_dalek_hugging", "The Dalek giving a clumsy hug to a town policeman, heartwarming moment", "triumphant orchestral swell"),
     ("19_country_road", "The Dalek gliding fast down a country road with 4 happy children riding on its casing, explosion of colorful confetti", "joyful shouting wind rushing celebration"),
