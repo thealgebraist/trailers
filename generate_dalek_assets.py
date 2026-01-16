@@ -29,7 +29,7 @@ DEFAULT_STEPS = 50 if IS_H200 else 16
 DEFAULT_GUIDANCE = 3.5 if IS_H200 else 0.0
 DEFAULT_QUANT = "none" if IS_H200 else "4bit"
 
-# ElevenLabs Config (kept for legacy but stable audio will be used if prompted)
+# ElevenLabs Config
 try:
     with open("eleven_key.txt", "r") as f:
         ELEVEN_API_KEY = f.read().strip()
@@ -52,14 +52,39 @@ SCENES = [
     ("12_town_citizens", "Montage of town citizens: A baker holding a baguette, a teacher at a chalkboard, and a cop tipping his hat, smiling", "bicycle bell ringing small town ambience"),
     ("13_hide_and_seek", "Action Shot: A Dalek playing hide and seek, poorly hiding behind a thin tree in a park", "playful footsteps giggling Dalek gliding on gravel"),
     ("14_dalek_prom", "A Dalek at a high school prom, a floral corsage taped to its dome, sitting next to a punch bowl, disco lights", "muffled 1950s prom music chatter"),
-    ("15_skaro_return", "Dramatic: A Dalek back on the bleak Skaro landscape, surrounded by dozens of angry, dark Daleks, high contrast", "ominous silence weapons powering up hum"),
-    ("16_quivering_eye", "Extreme close up: A Dalek eye-stalk quivering, showing emotion, blue light flickering", "textured mechanical growl electrical static"),
-    ("17_supreme_dalek_pie", "Key Scene: A Dalek facing a giant Supreme Dalek. The small Dalek extends its plunger, holding a warm apple pie with steam rising", "tense silence steam hiss"),
-    ("18_dalek_hugging", "The Dalek giving a clumsy hug to a town policeman, heartwarming moment", "triumphant orchestral swell"),
-    ("19_country_road", "The Dalek gliding fast down a country road with 4 happy children riding on its casing, explosion of colorful confetti", "joyful shouting wind rushing celebration"),
-    ("20_title_card", "Cinematic title card: 'A DALEK COMES HOME' in bold metallic font, subtitle 'EXTERMINATE THE LONELINESS'", "deep cinematic bass boom hawk screech"),
-    ("21_birthday_cake", "A Dalek trying to blow out birthday candles on a cake, its laser beam accidentally fires and explodes the cake into crumbs", "laser blast sound explosion muffled oops"),
+    ("15_rusty_reading", "A Dalek in a library, using its plunger to carefully turn the pages of a giant storybook, 8k", "paper turning sound textured library hush"),
+    ("16_rusty_swinging", "A Dalek sitting on a wooden tire swing, gently swaying under a massive oak tree, sunset, 8k", "creaking wood sound textured wind in leaves"),
+    ("17_rusty_bicycle", "A Dalek gliding alongside a group of children on bicycles, they are all laughing, 8k", "bicycle bell sound textured gravel crunch"),
+    ("18_rusty_storm", "A Dalek standing in the rain, looking up at a dark storm cloud that looks like a Dalek saucer, 1950s style", "thunder rumble textured rain on metal"),
+    ("19_rusty_goodbye", "A Dalek waving its plunger at Nana and Pop-Pop from the back of a truck, they are crying, 8k", "truck engine receding textured soft weeping"),
+    ("20_skaro_return", "Dramatic: A Dalek back on the bleak Skaro landscape, surrounded by dozens of angry, dark Daleks, high contrast", "ominous silence weapons powering up hum"),
+    ("21_quivering_eye", "Extreme close up: A Dalek eye-stalk quivering, showing emotion, blue light flickering", "textured mechanical growl electrical static"),
+    ("22_rusty_defiant", "A single Dalek standing alone against a massive army of Daleks on Skaro, 8k, cinematic", "low frequency pulse textured army chanting"),
+    ("23_supreme_dalek_pie", "Key Scene: A Dalek facing a giant Supreme Dalek. The small Dalek extends its plunger, holding a warm apple pie with steam rising", "tense silence steam hiss"),
+    ("24_pie_impact", "Close up of the Supreme Dalek's eye-stalk looking with confusion at the apple pie, 8k", "digital glitch sound textured mechanical click"),
+    ("25_dalek_confusion", "A group of Daleks all looking at each other, their lights flickering in confusion, 8k", "static noise textured electronic chatter"),
+    ("26_rusty_hugging", "The Dalek giving a clumsy hug to a town policeman, heartwarming moment", "triumphant orchestral swell"),
+    ("27_rusty_flying", "A Dalek flying through space with a giant apple pie icon painted on its casing, 8k", "space vacuum hum textured rocket fire"),
+    ("28_earth_paradise", "A wide shot of Earth as a green and blue paradise, seen from space, 8k", "celestial drone textured cosmic shimmer"),
+    ("29_rusty_landing", "A Dalek saucer landing in the middle of the Kansas wheat field, 1950s style", "saucer landing hum textured wind in wheat"),
+    ("30_reunion", "Nana and Pop-Pop running towards the Dalek in the wheat field, arms open wide, 8k", "happy shouting textured footsteps in grass"),
+    ("31_title_card", "Cinematic title card: 'A DALEK COMES HOME' in bold metallic font, subtitle 'EXTERMINATE THE LONELINESS'", "deep cinematic bass boom hawk screech"),
+    ("32_birthday_cake", "A Dalek trying to blow out birthday candles on a cake, its laser beam accidentally fires and explodes the cake into crumbs", "laser blast sound explosion muffled oops"),
 ]
+
+VO_SCRIPT = """
+In a universe... of infinite hate... where emotion is a crime... and compassion is deleted...
+One soldier... is about to remember... where he really came from.
+He wasn't born in a factory. He was found... in a cornfield.
+Raised by Nana and Pop-Pop. They didn't see a killing machine. They saw... their little Rusty.
+They taught him to read. They taught him to fish. And they taught him the most dangerous weapon of all...
+Love.
+But his past is calling. Skaro demands its soldier back.
+He's going home. And he's bringing dessert.
+Witness the most unlikely hero in the galaxy.
+This summer...
+A Dalek Comes Home.
+"""
 
 def generate_images(args):
     model_id = args.model

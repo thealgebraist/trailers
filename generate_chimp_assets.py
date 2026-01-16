@@ -40,9 +40,42 @@ SCENES = [
     ("08_golden_banana", "A glowing golden banana resting on a red velvet cushion in a high-end shop window, magical aura, 8k, pixar style", "magical shimmering bells textured mid-pitch chime"),
     ("09_chimp_running", "A chimpanzee sprinting through a colorful city street towards a fruit boutique, motion blur, 8k, pixar style", "fast cartoon footsteps rhythmic breathing"),
     ("10_chimp_reaching", "Close up of a chimpanzee's hand reaching out to touch a glowing golden banana, 8k, pixar style", "tense mid-pitch synth swell textured heart thud"),
-    ("11_title_card", "Movie title card 'THE BANANA QUEST' with a golden banana icon, tropical jungle background, professional typography, 8k", "triumphant orchestral hit deep cinematic bass"),
-    ("12_chimp_slippery", "A chimpanzee trying to peel a golden banana but it's very slippery and flying out of his hands, funny expression, 8k, pixar style", "cartoon slip sound rubbery stretch textured pop")
+    ("11_chimp_guard", "A large grumpy gorilla guard wearing a suit and sunglasses, standing in front of the golden banana, 8k, pixar style", "deep gorilla grunt textured heavy footsteps"),
+    ("12_chimp_distraction", "A chimpanzee throwing a handful of colorful marbles to distract the gorilla guard, marbles rolling everywhere, 8k, pixar style", "marbles clattering on floor textured glass rolling"),
+    ("13_chimp_sneaking", "A chimpanzee tip-toeing past the distracted guard on a shiny marble floor, funny pose, 8k, pixar style", "squeaky rubber shoe sound textured tip-toe rhythmic"),
+    ("14_chimp_grab", "A chimpanzee's hand finally grasping the glowing golden banana, sparkle effects, 8k, pixar style", "magical sparkle sound textured mid-pitch shimmer"),
+    ("15_chimp_escape", "A chimpanzee jumping through a fruit-shaped window with the golden banana, glass shattering into fruit slices, 8k, pixar style", "glass shattering sound textured fruit squelch"),
+    ("16_chimp_chase", "A fleet of hover-fruit vehicles chasing the chimpanzee through the fruit city streets, 8k, pixar style", "hovercraft hum textured mid-pitch engine whine"),
+    ("17_chimp_glider", "A chimpanzee using a giant leaf as a hang-glider, soaring over the jungle canopy, 8k, pixar style", "wind rushing sound textured jungle ambience"),
+    ("18_chimp_waterfall", "A chimpanzee gliding behind a massive sparkling waterfall, rainbow in the mist, 8k, pixar style", "roaring waterfall sound textured water splash"),
+    ("19_chimp_cave", "A chimpanzee entering a mysterious cave shaped like a giant mouth, glowing mushrooms inside, 8k, pixar style", "echoing cave drips textured damp atmosphere"),
+    ("20_chimp_altar", "A chimpanzee placing the golden banana on an ancient stone altar in the heart of the jungle, 8k, pixar style", "stone grinding sound textured ancient mechanical click"),
+    ("21_chimp_transformation", "The golden banana glowing brightly and transforming into a giant banana-shaped portal, 8k, pixar style", "pulsing magical energy textured mid-pitch hum"),
+    ("22_chimp_portal", "A chimpanzee looking with wonder into the banana portal, showing a paradise of fruit trees, 8k, pixar style", "heavenly choir texture mid-pitch celestial drone"),
+    ("23_chimp_step_in", "A chimpanzee stepping into the portal, half his body already inside the fruit paradise, 8k, pixar style", "electrical portal sizzle textured energy flow"),
+    ("24_chimp_paradise", "A wide shot of the chimpanzee in fruit paradise, mountains of bananas, rivers of juice, 8k, pixar style", "peaceful nature sounds textured flowing juice"),
+    ("25_chimp_friends", "A group of chimpanzees and penguins all eating fruit together in paradise, 8k, pixar style", "happy chimp chatter textured chewing sounds"),
+    ("26_chimp_celebration", "A chimpanzee being lifted up by his friends in celebration, confetti made of fruit peels, 8k, pixar style", "joyful shouting textured party ambience"),
+    ("27_chimp_nap", "A chimpanzee sleeping soundly on a bed of soft banana leaves in paradise, 8k, pixar style", "soft snoring sound textured jungle breeze"),
+    ("28_chimp_dream", "A chimpanzee's dream bubble showing his next adventure: a trip to the moon made of cheese, 8k, pixar style", "dreamy synth texture mid-pitch twinkling"),
+    ("29_chimp_sunset", "A chimpanzee watching a beautiful sunset over the fruit paradise, orange and purple sky, 8k, pixar style", "calm evening crickets textured soft wind"),
+    ("30_chimp_slippery", "A chimpanzee trying to peel a golden banana but it's very slippery and flying out of his hands, funny expression, 8k, pixar style", "cartoon slip sound rubbery stretch textured pop"),
+    ("31_chimp_wink", "Close up of the chimpanzee winking at the camera while holding a regular banana, 8k, pixar style", "cartoon wink sound textured mid-pitch ding"),
+    ("32_title_card", "Movie title card 'THE BANANA QUEST' with a golden banana icon, tropical jungle background, professional typography, 8k", "triumphant orchestral hit deep cinematic bass")
 ]
+
+VO_PROMPT = """
+One chimp. One dream. And a ticket to the ultimate prize. 
+Across the Great Divide, to the city of legends. 
+He's not just hungry... he's on a mission. 
+But the path is guarded. The stakes are high.
+One slip could end it all.
+Experience the adventure of a lifetime. 
+From the streets of Fruit City to the heart of the jungle.
+Witness the quest that changed everything.
+The Banana Quest. 
+Coming this Summer.
+"""
 
 def generate_images(args):
     model_id = args.model

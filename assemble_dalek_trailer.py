@@ -11,9 +11,11 @@ SCENES = [
     "01_skaro_landscape", "02_dalek_factory_closeup", "03_horseshoe_closeup", "04_golden_eye",
     "05_kansas_farmhouse", "06_baby_dalek", "07_dalek_pie", "08_dalek_fishing",
     "09_dalek_tractor", "10_red_schoolhouse", "11_class_photo", "12_town_citizens",
-    "13_hide_and_seek", "14_dalek_prom", "15_skaro_return", "16_quivering_eye",
-    "17_supreme_dalek_pie", "18_dalek_hugging", "19_country_road", "20_title_card",
-    "21_birthday_cake"
+    "13_hide_and_seek", "14_dalek_prom", "15_rusty_reading", "16_rusty_swinging",
+    "17_rusty_bicycle", "18_rusty_storm", "19_rusty_goodbye", "20_skaro_return",
+    "21_quivering_eye", "22_rusty_defiant", "23_supreme_dalek_pie", "24_pie_impact",
+    "25_dalek_confusion", "26_rusty_hugging", "27_rusty_flying", "28_earth_paradise",
+    "29_rusty_landing", "30_reunion", "31_title_card", "32_birthday_cake"
 ]
 
 def assemble_dalek(assets_dir, output_file):
@@ -26,9 +28,6 @@ def assemble_dalek(assets_dir, output_file):
     # 1. Visual Inputs
     for s_id in SCENES:
         img_path = f"{assets_dir}/images/{s_id}.png"
-        if not os.path.exists(img_path):
-            img_path = f"{assets_dir}/images/{s_id}.bmp"
-            
         if os.path.exists(img_path):
             cmd += ["-loop", "1", "-t", str(scene_duration), "-i", img_path]
         else:
@@ -43,10 +42,7 @@ def assemble_dalek(assets_dir, output_file):
              cmd += ["-f", "lavfi", "-t", str(scene_duration), "-i", "anullsrc=r=44100:cl=stereo"]
 
     # 3. Voiceover
-    vo_path = f"{assets_dir}/voice/voiceover_full.mp3"
-    if not os.path.exists(vo_path):
-        vo_path = f"{assets_dir}/voice/voiceover_full.wav"
-        
+    vo_path = f"{assets_dir}/voice/voiceover_full.wav"
     if os.path.exists(vo_path):
         cmd += ["-i", vo_path]
     else:
