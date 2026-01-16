@@ -265,7 +265,9 @@ def generate_images(args):
         )
         pipe_kwargs["transformer_quantization_config"] = quant_config
         if not offload:
-            pipe_kwargs["device_map"] = "balanced"
+            # Avoid using device_map="balanced" as it can leave modules on CPU
+            # We will manually move to device later
+            pass
 
     is_local = os.path.isdir(model_id)
     pipe = DiffusionPipeline.from_pretrained(
@@ -278,7 +280,7 @@ def generate_images(args):
 
     if offload and DEVICE == "cuda":
         pipe.enable_model_cpu_offload()
-    elif quant == "none" and DEVICE == "cuda":
+    elif DEVICE == "cuda":
         pipe.to(DEVICE)
 
     os.makedirs(f"{ASSETS_DIR}/images", exist_ok=True)
