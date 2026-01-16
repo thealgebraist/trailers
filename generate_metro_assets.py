@@ -3,26 +3,29 @@ import os
 import sys
 import numpy as np
 import scipy.io.wavfile as wavfile
+import argparse
 from diffusers import DiffusionPipeline, StableAudioPipeline
 from transformers import pipeline
 from PIL import Image
 
-# --- Configuration ---
+# --- Configuration & Defaults ---
 PROJECT_NAME = "metro"
 ASSETS_DIR = f"assets_{PROJECT_NAME}"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DTYPE = torch.bfloat16 if DEVICE == "cuda" else torch.float32
 
-# H200 Detection
+# H200 Detection for default behavior
 IS_H200 = False
 if DEVICE == "cuda":
     gpu_name = torch.cuda.get_device_name(0)
     if "H200" in gpu_name:
         IS_H200 = True
 
-MODEL_ID = "black-forest-labs/FLUX.1-dev" if IS_H200 else "black-forest-labs/FLUX.1-schnell"
-STEPS = 64 if IS_H200 else 16
-GUIDANCE = 3.5 if IS_H200 else 0.0 # Schnell usually uses 0 guidance
+# Default values based on hardware
+DEFAULT_MODEL = "black-forest-labs/FLUX.1-dev" if IS_H200 else "black-forest-labs/FLUX.1-schnell"
+DEFAULT_STEPS = 64 if IS_H200 else 16
+DEFAULT_GUIDANCE = 3.5 if IS_H200 else 0.0
+DEFAULT_QUANT = "none" if IS_H200 else "4bit"
 
 # Scene Definitions (Prompts & SFX Prompts)
 SCENES = [
@@ -76,23 +79,37 @@ We are going nowhere.
 Fast.
 """
 
-def generate_images():
-    print(f"--- Generating 20 {MODEL_ID} Images ({STEPS} steps) on {DEVICE} ---")
+def generate_images(args):
+    model_id = args.model
+    steps = args.steps
+    guidance = args.guidance
+    quant = args.quant
+    offload = args.offload
+
+    print(f"--- Generating 20 {model_id} Images ({steps} steps) on {DEVICE} ---")
+    print(f"Quantization: {quant}, CPU Offload: {offload}")
     
-    if not IS_H200 and DEVICE == "cuda":
+    pipe_kwargs = {
+        "torch_dtype": torch.bfloat16 if DEVICE == "cuda" else torch.float32,
+    }
+
+    if quant != "none" and DEVICE == "cuda":
         from diffusers import PipelineQuantizationConfig
-        quantization_config = PipelineQuantizationConfig(
-            quant_backend="bitsandbytes_4bit",
-            quant_kwargs={"load_in_4bit": True},
+        backend = "bitsandbytes_4bit" if quant == "4bit" else "bitsandbytes_8bit"
+        quant_kwargs = {"load_in_4bit": True} if quant == "4bit" else {"load_in_8bit": True}
+        
+        pipe_kwargs["quantization_config"] = PipelineQuantizationConfig(
+            quant_backend=backend,
+            quant_kwargs=quant_kwargs,
             components_to_quantize=["transformer"]
         )
-        pipe = DiffusionPipeline.from_pretrained(
-            MODEL_ID, 
-            quantization_config=quantization_config, 
-            torch_dtype=torch.bfloat16
-        ).to(DEVICE)
+    
+    pipe = DiffusionPipeline.from_pretrained(model_id, **pipe_kwargs)
+    
+    if offload and DEVICE == "cuda":
+        pipe.enable_model_cpu_offload()
     else:
-        pipe = DiffusionPipeline.from_pretrained(MODEL_ID, torch_dtype=DTYPE).to(DEVICE)
+        pipe.to(DEVICE)
 
     os.makedirs(f"{ASSETS_DIR}/images", exist_ok=True)
     
@@ -100,10 +117,99 @@ def generate_images():
         out_path = f"{ASSETS_DIR}/images/{s_id}.png"
         if not os.path.exists(out_path):
             print(f"Generating: {s_id}")
-            image = pipe(prompt, num_inference_steps=STEPS, guidance_scale=GUIDANCE, width=1280, height=720).images[0]
+            image = pipe(prompt, num_inference_steps=steps, guidance_scale=guidance, width=1280, height=720).images[0]
             image.save(out_path)
     del pipe
     torch.cuda.empty_cache()
+
+def generate_sfx():
+    print(f"--- Generating SFX with Stable Audio Open on {DEVICE} ---")
+    pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
+
+    os.makedirs(f"{ASSETS_DIR}/sfx", exist_ok=True)
+
+    for s_id, _, sfx_prompt in SCENES:
+        out_path = f"{ASSETS_DIR}/sfx/{s_id}.wav"
+        if not os.path.exists(out_path):
+            print(f"Generating SFX for: {s_id} -> {sfx_prompt}")
+            # Stable Audio Open generates 44.1kHz audio
+            audio = pipe(sfx_prompt, num_inference_steps=100, audio_length_in_s=12.0).audios[0]
+            # audio is [channels, samples]
+            audio_np = audio.T.cpu().numpy()
+            wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16)) 
+            
+    del pipe
+    torch.cuda.empty_cache()
+
+def generate_voiceover():
+    print(f"--- Generating Voiceover with Full Bark on {DEVICE} ---")
+    os.makedirs(f"{ASSETS_DIR}/voice", exist_ok=True)
+    
+    out_path = f"{ASSETS_DIR}/voice/voiceover_full.wav"
+    if os.path.exists(out_path):
+        return
+
+    tts = pipeline("text-to-speech", model="suno/bark", device=DEVICE)
+    
+    lines = [l for l in VO_SCRIPT.split('\n') if l.strip()]
+    full_audio = []
+    
+    print(f"Synthesizing {len(lines)} lines...")
+    sampling_rate = 24000
+    for line in lines:
+        print(f"  Speaking: {line[:30]}...")
+        output = tts(line, forward_params={"history_prompt": "v2/en_speaker_6"})
+        audio_data = output["audio"]
+        sampling_rate = output["sampling_rate"]
+        
+        silence = np.zeros(int(sampling_rate * 0.8))
+        full_audio.append(audio_data.flatten())
+        full_audio.append(silence)
+        
+    combined = np.concatenate(full_audio)
+    wavfile.write(out_path, sampling_rate, (combined * 32767).astype(np.int16))
+    del tts
+    torch.cuda.empty_cache()
+
+def generate_music():
+    print(f"--- Generating Music (240s) with MusicGen-Large on {DEVICE} ---")
+    os.makedirs(f"{ASSETS_DIR}/music", exist_ok=True)
+    out_path = f"{ASSETS_DIR}/music/metro_theme.wav"
+    
+    if os.path.exists(out_path):
+        return
+
+    synthesiser = pipeline("text-to-audio", "facebook/musicgen-large", device=DEVICE)
+    prompt = "eerie minimal synth drone, dark ambient, sci-fi horror soundtrack, slow pulsing deep bass, cinematic atmosphere, high quality"
+    
+    clips = []
+    sr = 32000
+    for i in range(8): # 8 * 30s = 240s
+        print(f"Generating music chunk {i+1}/8...")
+        output = synthesiser(prompt, forward_params={"max_new_tokens": 1500})
+        clips.append(output["audio"][0].flatten())
+        sr = output["sampling_rate"]
+        
+    combined = np.concatenate(clips, axis=0)
+    wavfile.write(out_path, sr, (combined * 32767).astype(np.int16))
+    del synthesiser
+    torch.cuda.empty_cache()
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate Metro Assets")
+    parser.add_argument("--model", type=str, default=DEFAULT_MODEL, help="Model ID")
+    parser.add_argument("--steps", type=int, default=DEFAULT_STEPS, help="Inference steps")
+    parser.add_argument("--guidance", type=float, default=DEFAULT_GUIDANCE, help="Guidance scale")
+    parser.add_argument("--quant", type=str, default=DEFAULT_QUANT, choices=["none", "4bit", "8bit"], help="Quantization type")
+    parser.add_argument("--offload", action="store_true", help="Enable CPU offload")
+    
+    args = parser.parse_args()
+
+    generate_images(args)
+    generate_sfx()
+    generate_voiceover()
+    generate_music()
+
 
 def generate_sfx():
     print(f"--- Generating SFX with Stable Audio Open on {DEVICE} ---")

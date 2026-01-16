@@ -4,26 +4,29 @@ import sys
 import numpy as np
 import scipy.io.wavfile as wavfile
 import requests
+import argparse
 from diffusers import DiffusionPipeline, StableAudioPipeline
 from transformers import pipeline
 from PIL import Image
 
-# --- Configuration ---
+# --- Configuration & Defaults ---
 PROJECT_NAME = "dalek"
 ASSETS_DIR = f"assets_{PROJECT_NAME}"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DTYPE = torch.bfloat16 if DEVICE == "cuda" else torch.float32
 
-# H200 Detection
+# H200 Detection for default behavior
 IS_H200 = False
 if DEVICE == "cuda":
     gpu_name = torch.cuda.get_device_name(0)
     if "H200" in gpu_name:
         IS_H200 = True
 
-MODEL_ID = "black-forest-labs/FLUX.1-dev" if IS_H200 else "black-forest-labs/FLUX.1-schnell"
-STEPS = 50 if IS_H200 else 16
-GUIDANCE = 3.5 if IS_H200 else 0.0
+# Default values based on hardware
+DEFAULT_MODEL = "black-forest-labs/FLUX.1-dev" if IS_H200 else "black-forest-labs/FLUX.1-schnell"
+DEFAULT_STEPS = 50 if IS_H200 else 16
+DEFAULT_GUIDANCE = 3.5 if IS_H200 else 0.0
+DEFAULT_QUANT = "none" if IS_H200 else "4bit"
 
 # ElevenLabs Config
 try:
@@ -70,33 +73,140 @@ This summer...
 A Dalek Comes Home.
 """
 
-def generate_images():
-    print(f"--- Generating {len(SCENES)} {MODEL_ID} Images ({STEPS} steps) ---")
+def generate_images(args):
+    model_id = args.model
+    steps = args.steps
+    guidance = args.guidance
+    quant = args.quant
+    offload = args.offload
+
+    print(f"--- Generating {len(SCENES)} {model_id} Images ({steps} steps) ---")
+    print(f"Quantization: {quant}, CPU Offload: {offload}")
     
-    if not IS_H200 and DEVICE == "cuda":
+    pipe_kwargs = {
+        "torch_dtype": torch.bfloat16 if DEVICE == "cuda" else torch.float32,
+    }
+
+    if quant != "none" and DEVICE == "cuda":
         from diffusers import PipelineQuantizationConfig
-        quantization_config = PipelineQuantizationConfig(
-            quant_backend="bitsandbytes_4bit",
-            quant_kwargs={"load_in_4bit": True},
+        backend = "bitsandbytes_4bit" if quant == "4bit" else "bitsandbytes_8bit"
+        quant_kwargs = {"load_in_4bit": True} if quant == "4bit" else {"load_in_8bit": True}
+        
+        pipe_kwargs["quantization_config"] = PipelineQuantizationConfig(
+            quant_backend=backend,
+            quant_kwargs=quant_kwargs,
             components_to_quantize=["transformer"]
         )
-        pipe = DiffusionPipeline.from_pretrained(
-            MODEL_ID, 
-            quantization_config=quantization_config, 
-            torch_dtype=torch.bfloat16
-        ).to(DEVICE)
+    
+    pipe = DiffusionPipeline.from_pretrained(model_id, **pipe_kwargs)
+    
+    if offload and DEVICE == "cuda":
+        pipe.enable_model_cpu_offload()
     else:
-        pipe = DiffusionPipeline.from_pretrained(MODEL_ID, torch_dtype=DTYPE).to(DEVICE)
-        
+        pipe.to(DEVICE)
+
     os.makedirs(f"{ASSETS_DIR}/images", exist_ok=True)
     for s_id, prompt, _ in SCENES:
         out_path = f"{ASSETS_DIR}/images/{s_id}.png"
         if not os.path.exists(out_path):
             print(f"Generating: {s_id}")
-            image = pipe(prompt, num_inference_steps=STEPS, guidance_scale=GUIDANCE, width=1280, height=720).images[0]
+            image = pipe(prompt, num_inference_steps=steps, guidance_scale=guidance, width=1280, height=720).images[0]
             image.save(out_path)
     del pipe
     torch.cuda.empty_cache()
+
+def generate_sfx():
+    print(f"--- Generating SFX with Stable Audio Open ---")
+    pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
+    os.makedirs(f"{ASSETS_DIR}/sfx", exist_ok=True)
+    for s_id, _, sfx_prompt in SCENES:
+        out_path = f"{ASSETS_DIR}/sfx/{s_id}.wav"
+        if not os.path.exists(out_path):
+            print(f"Generating SFX for: {s_id}")
+            audio = pipe(sfx_prompt, num_inference_steps=100, audio_length_in_s=10.0).audios[0]
+            audio_np = audio.T.cpu().numpy()
+            wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16))
+    del pipe
+    torch.cuda.empty_cache()
+
+def generate_voiceover():
+    print(f"--- Generating Voiceover with ElevenLabs ---")
+    os.makedirs(f"{ASSETS_DIR}/voice", exist_ok=True)
+    out_path = f"{ASSETS_DIR}/voice/voiceover_full.wav"
+    if os.path.exists(out_path) or not ELEVEN_API_KEY:
+        if not ELEVEN_API_KEY: print("No ElevenLabs key found, skipping VO.")
+        return
+
+    # Voice ID for a deep trailer voice (e.g., 'George' or similar)
+    # Using a common one or searching for 'Don'
+    VOICE_ID = "pNInz6obpg8nEByWQX7d" # Adam - deep and versatile
+
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
+    headers = {
+        "Accept": "audio/mpeg",
+        "Content-Type": "application/json",
+        "xi-api-key": ELEVEN_API_KEY
+    }
+    data = {
+        "text": VO_SCRIPT,
+        "model_id": "eleven_monolingual_v1",
+        "voice_settings": {
+            "stability": 0.5,
+            "similarity_boost": 0.8
+        }
+    }
+
+    response = requests.post(url, json=data, headers=headers)
+    if response.status_code == 200:
+        with open(out_path.replace(".wav", ".mp3"), "wb") as f:
+            f.write(response.content)
+        # Convert mp3 to wav if needed, but ffmpeg handles both.
+        print(f"VO saved to {out_path.replace('.wav', '.mp3')}")
+    else:
+        print(f"ElevenLabs Error: {response.text}")
+
+def generate_music():
+    print(f"--- Generating Music with MusicGen-Large ---")
+    os.makedirs(f"{ASSETS_DIR}/music", exist_ok=True)
+    out_path = f"{ASSETS_DIR}/music/dalek_theme.wav"
+    if os.path.exists(out_path): return
+
+    synthesiser = pipeline("text-to-audio", "facebook/musicgen-large", device=DEVICE)
+    # Montage of music styles as described
+    prompts = [
+        "dark industrial synth drone, metallic, sci-fi horror",
+        "warm acoustic Americana guitar, rural, nostalgic",
+        "soaring orchestral emotional crescendo, cinematic"
+    ]
+    
+    clips = []
+    sr = 32000
+    for i, p in enumerate(prompts):
+        print(f"Generating music part {i+1}...")
+        output = synthesiser(p, forward_params={"max_new_tokens": 1500})
+        clips.append(output["audio"][0].flatten())
+        sr = output["sampling_rate"]
+        
+    combined = np.concatenate(clips, axis=0)
+    wavfile.write(out_path, sr, (combined * 32767).astype(np.int16))
+    del synthesiser
+    torch.cuda.empty_cache()
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate Dalek Assets")
+    parser.add_argument("--model", type=str, default=DEFAULT_MODEL, help="Model ID")
+    parser.add_argument("--steps", type=int, default=DEFAULT_STEPS, help="Inference steps")
+    parser.add_argument("--guidance", type=float, default=DEFAULT_GUIDANCE, help="Guidance scale")
+    parser.add_argument("--quant", type=str, default=DEFAULT_QUANT, choices=["none", "4bit", "8bit"], help="Quantization type")
+    parser.add_argument("--offload", action="store_true", help="Enable CPU offload")
+
+    args = parser.parse_args()
+
+    generate_images(args)
+    generate_sfx()
+    generate_voiceover()
+    generate_music()
+
 
 def generate_sfx():
     print(f"--- Generating SFX with Stable Audio Open ---")
