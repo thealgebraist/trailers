@@ -82,7 +82,7 @@ def generate_images():
     if not IS_H200 and DEVICE == "cuda":
         from diffusers import PipelineQuantizationConfig
         quantization_config = PipelineQuantizationConfig(
-            quant_backend="bitsandbytes",
+            quant_backend="bitsandbytes_4bit",
             quant_kwargs={"load_in_4bit": True},
             components_to_quantize=["transformer"]
         )
