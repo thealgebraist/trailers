@@ -297,7 +297,7 @@ def generate_images(args):
         if not os.path.exists(out_path):
             print(f"Generating: {s_id}")
             image = pipe(
-                prompt,
+                prompt=prompt,
                 num_inference_steps=steps,
                 guidance_scale=guidance,
                 width=1280,
