@@ -440,25 +440,75 @@ def generate_voiceover(args):
 def generate_music(args):
     print(f"--- Generating Background Music with Stable Audio on {DEVICE} ---")
     os.makedirs(f"{ASSETS_DIR}/music", exist_ok=True)
-    out_path = f"{ASSETS_DIR}/music/metro_theme.wav"
-    if os.path.exists(out_path):
-        return
 
-    pipe = StableAudioPipeline.from_pretrained(
-        "stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16
-    ).to(DEVICE)
-    utils.remove_weight_norm(pipe)
-    if args.scalenorm:
-        utils.apply_stability_improvements(pipe.transformer, use_scalenorm=True)
+    # We want 3 tracks total (1 existing + 2 new), all around 160s
+    # The first one might already exist as 45s. We'll leave it if it exists to avoid overwriting user work,
+    # or overwriting if the user wants them ALL to be 160s?
+    # Request: "generate 2 more background music synth wavs with a length each of 160s"
+    # This implies keeping the old one and adding 2 more.
+    # But for consistency, let's treat them as a list.
 
-    prompt = "eerie minimal synth drone, dark ambient, sci-fi horror soundtrack, slow pulsing deep bass, cinematic atmosphere, high quality"
-    print("Generating eerie synth theme...")
-    audio = pipe(prompt, num_inference_steps=100, audio_end_in_s=45.0).audios[0]
-    audio_np = audio.T.cpu().numpy()
-    wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16))
-    del pipe
-    gc.collect()
-    torch.cuda.empty_cache()
+    tracks = [
+        (
+            "metro_theme.wav",
+            45.0,
+        ),  # Original, keeping short if it exists, or maybe we extend it if not present?
+        ("metro_theme_long_01.wav", 160.0),
+        ("metro_theme_long_02.wav", 160.0),
+    ]
+
+    # Initialize pipeline only if we need to generate something
+    pipe = None
+
+    for filename, duration_s in tracks:
+        out_path = f"{ASSETS_DIR}/music/{filename}"
+        if os.path.exists(out_path):
+            print(f"  Skipping {filename} (exists)")
+            continue
+
+        if pipe is None:
+            # Lazy load
+            pipe = StableAudioPipeline.from_pretrained(
+                "stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16
+            ).to(DEVICE)
+            utils.remove_weight_norm(pipe)
+            if args.scalenorm:
+                utils.apply_stability_improvements(pipe.transformer, use_scalenorm=True)
+
+        prompt = "eerie minimal synth drone, dark ambient, sci-fi horror soundtrack, slow pulsing deep bass, cinematic atmosphere, high quality"
+        print(f"  Generating {filename} ({duration_s}s)...")
+
+        # Determine number of chunks needed (model max ~47s, let's play safe with 40s)
+        chunk_len = 40.0
+        num_chunks = int(np.ceil(duration_s / chunk_len))
+
+        full_audio = []
+
+        for k in range(num_chunks):
+            # For the last chunk, we might need less, but standardizing chunk size helps consistency.
+            # We'll just trim later if needed, or let it be slightly longer.
+            print(f"    Generating chunk {k + 1}/{num_chunks}...")
+
+            # Varied seed or noise? Pipeline handles random noise by default per call.
+            audio = pipe(
+                prompt, num_inference_steps=100, audio_end_in_s=chunk_len
+            ).audios[0]
+            audio_np = audio.T.cpu().numpy()
+            full_audio.append(audio_np)
+
+        if full_audio:
+            combined = np.concatenate(full_audio, axis=0)
+            # Trim to exact length?
+            # combined shape is (samples, channels).
+            # 44100 Hz.
+            # Let's just save the full result.
+            wavfile.write(out_path, 44100, (combined * 32767).astype(np.int16))
+            print(f"    Saved {out_path}")
+
+    if pipe:
+        del pipe
+        gc.collect()
+        torch.cuda.empty_cache()
 
 
 if __name__ == "__main__":
