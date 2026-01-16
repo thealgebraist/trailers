@@ -10,8 +10,19 @@ from PIL import Image
 # --- Configuration ---
 PROJECT_NAME = "metro"
 ASSETS_DIR = f"assets_{PROJECT_NAME}"
-DEVICE = "cuda" # Targeted for H200
-DTYPE = torch.bfloat16 # High precision and performance for H200
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DTYPE = torch.bfloat16 if DEVICE == "cuda" else torch.float32
+
+# H200 Detection
+IS_H200 = False
+if DEVICE == "cuda":
+    gpu_name = torch.cuda.get_device_name(0)
+    if "H200" in gpu_name:
+        IS_H200 = True
+
+MODEL_ID = "black-forest-labs/FLUX.1-dev" if IS_H200 else "black-forest-labs/FLUX.1-schnell"
+STEPS = 64 if IS_H200 else 4
+GUIDANCE = 3.5 if IS_H200 else 0.0 # Schnell usually uses 0 guidance
 
 # Scene Definitions (Prompts & SFX Prompts)
 SCENES = [
@@ -66,8 +77,8 @@ Fast.
 """
 
 def generate_images():
-    print(f"--- Generating 20 FLUX.2-dev Images (64 steps) on {DEVICE} ---")
-    pipe = DiffusionPipeline.from_pretrained("black-forest-labs/FLUX.2-dev", torch_dtype=DTYPE).to(DEVICE)
+    print(f"--- Generating 20 {MODEL_ID} Images ({STEPS} steps) on {DEVICE} ---")
+    pipe = DiffusionPipeline.from_pretrained(MODEL_ID, torch_dtype=DTYPE).to(DEVICE)
 
     os.makedirs(f"{ASSETS_DIR}/images", exist_ok=True)
     
@@ -75,7 +86,7 @@ def generate_images():
         out_path = f"{ASSETS_DIR}/images/{s_id}.png"
         if not os.path.exists(out_path):
             print(f"Generating: {s_id}")
-            image = pipe(prompt, num_inference_steps=64, guidance_scale=3.5, width=1280, height=720).images[0]
+            image = pipe(prompt, num_inference_steps=STEPS, guidance_scale=GUIDANCE, width=1280, height=720).images[0]
             image.save(out_path)
     del pipe
     torch.cuda.empty_cache()

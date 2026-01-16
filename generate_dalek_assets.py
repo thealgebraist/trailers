@@ -14,6 +14,17 @@ ASSETS_DIR = f"assets_{PROJECT_NAME}"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DTYPE = torch.bfloat16 if DEVICE == "cuda" else torch.float32
 
+# H200 Detection
+IS_H200 = False
+if DEVICE == "cuda":
+    gpu_name = torch.cuda.get_device_name(0)
+    if "H200" in gpu_name:
+        IS_H200 = True
+
+MODEL_ID = "black-forest-labs/FLUX.1-dev" if IS_H200 else "black-forest-labs/FLUX.1-schnell"
+STEPS = 50 if IS_H200 else 4
+GUIDANCE = 3.5 if IS_H200 else 0.0
+
 # ElevenLabs Config
 try:
     with open("eleven_key.txt", "r") as f:
@@ -60,14 +71,14 @@ A Dalek Comes Home.
 """
 
 def generate_images():
-    print(f"--- Generating {len(SCENES)} FLUX.2-dev Images ---")
-    pipe = DiffusionPipeline.from_pretrained("black-forest-labs/FLUX.2-dev", torch_dtype=DTYPE).to(DEVICE)
+    print(f"--- Generating {len(SCENES)} {MODEL_ID} Images ({STEPS} steps) ---")
+    pipe = DiffusionPipeline.from_pretrained(MODEL_ID, torch_dtype=DTYPE).to(DEVICE)
     os.makedirs(f"{ASSETS_DIR}/images", exist_ok=True)
     for s_id, prompt, _ in SCENES:
         out_path = f"{ASSETS_DIR}/images/{s_id}.png"
         if not os.path.exists(out_path):
             print(f"Generating: {s_id}")
-            image = pipe(prompt, num_inference_steps=50, guidance_scale=3.5, width=1280, height=720).images[0]
+            image = pipe(prompt, num_inference_steps=STEPS, guidance_scale=GUIDANCE, width=1280, height=720).images[0]
             image.save(out_path)
     del pipe
     torch.cuda.empty_cache()
