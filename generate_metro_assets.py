@@ -6,7 +6,7 @@ import scipy.io.wavfile as wavfile
 import argparse
 import utils
 from diffusers import DiffusionPipeline, StableAudioPipeline
-from transformers import pipeline
+from transformers import BarkModel, AutoProcessor
 from PIL import Image
 
 # --- Configuration & Defaults ---
@@ -338,22 +338,28 @@ def generate_voiceover(args):
     if os.path.exists(out_path):
         return
 
-    tts = pipeline("text-to-speech", model="suno/bark", device=DEVICE)
+    # Load model and processor directly to avoid pipeline issues with voice_preset
+    processor = AutoProcessor.from_pretrained("suno/bark")
+    model = BarkModel.from_pretrained("suno/bark").to(DEVICE)
+
     lines = [l for l in VO_SCRIPT.split("\n") if l.strip()]
     full_audio = []
     sampling_rate = 24000
+
     for line in lines:
         print(f"  Speaking: {line[:30]}...")
-        output = tts(line, voice_preset=args.voice_preset)
-        audio_data = output["audio"]
-        sampling_rate = output["sampling_rate"]
+        inputs = processor(line, voice_preset=args.voice_preset).to(DEVICE)
+        audio_array = model.generate(**inputs)
+        audio_data = audio_array.cpu().numpy().squeeze()
+
         silence = np.zeros(int(sampling_rate * 0.8))
-        full_audio.append(audio_data.flatten())
+        full_audio.append(audio_data)
         full_audio.append(silence)
 
     combined = np.concatenate(full_audio)
     wavfile.write(out_path, sampling_rate, (combined * 32767).astype(np.int16))
-    del tts
+    del model
+    del processor
     torch.cuda.empty_cache()
 
 
