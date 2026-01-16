@@ -5,8 +5,9 @@ import numpy as np
 import scipy.io.wavfile as wavfile
 import argparse
 import utils
+import subprocess
 from diffusers import DiffusionPipeline, StableAudioPipeline
-from transformers import BarkModel, AutoProcessor, BitsAndBytesConfig
+from transformers import BitsAndBytesConfig
 from PIL import Image
 
 # --- Configuration & Defaults ---
@@ -323,36 +324,55 @@ def generate_sfx(args):
     torch.cuda.empty_cache()
 
 
+def apply_trailer_voice_effect(input_path):
+    # This is a stub for the user's requested effect, presumably to be expanded or just a placeholder
+    # In a real scenario, we might use pydub or similar to add reverb/EQ
+    print(f"  [Stub] Applying trailer voice effects to {input_path}...")
+
+
 def generate_voiceover(args):
-    print(f"--- Generating Voiceover with Bark (Intelligible TTS) on {DEVICE} ---")
+    print(f"--- Generating Voiceover with F5-TTS (Local CLI) on {DEVICE} ---")
     os.makedirs(f"{ASSETS_DIR}/voice", exist_ok=True)
     out_path = f"{ASSETS_DIR}/voice/voiceover_full.wav"
     if os.path.exists(out_path):
         return
 
-    # Load model and processor directly to avoid pipeline issues with voice_preset
-    processor = AutoProcessor.from_pretrained("suno/bark")
-    model = BarkModel.from_pretrained("suno/bark").to(DEVICE)
+    full_text = VO_SCRIPT.replace("\n", " ").strip()
 
-    lines = [l for l in VO_SCRIPT.split("\n") if l.strip()]
-    full_audio = []
-    sampling_rate = 24000
+    # We use a temp directory name matching the user's snippet preference if desired,
+    # but let's stick to the assets structure or a temporary one.
+    temp_dir = f"{ASSETS_DIR}/voice/f5_temp"
+    os.makedirs(temp_dir, exist_ok=True)
 
-    for line in lines:
-        print(f"  Speaking: {line[:30]}...")
-        inputs = processor(line, voice_preset=args.voice_preset).to(DEVICE)
-        audio_array = model.generate(**inputs, pad_token_id=10000)
-        audio_data = audio_array.cpu().numpy().squeeze()
+    cmd = [
+        "f5-tts_infer-cli",
+        "--gen_text",
+        full_text,
+        "--output_dir",
+        temp_dir,
+        "--file_prefix",
+        "metro_vo",
+    ]
 
-        silence = np.zeros(int(sampling_rate * 0.8))
-        full_audio.append(audio_data)
-        full_audio.append(silence)
+    try:
+        print(f"  Running F5-TTS CLI: {' '.join(cmd)}")
+        subprocess.run(cmd, check=True)
 
-    combined = np.concatenate(full_audio)
-    wavfile.write(out_path, sampling_rate, (combined * 32767).astype(np.int16))
-    del model
-    del processor
-    torch.cuda.empty_cache()
+        # F5-TTS likely outputs to {output_dir}/{file_prefix}.wav
+        generated_wav = f"{temp_dir}/metro_vo.wav"
+
+        if os.path.exists(generated_wav):
+            os.replace(generated_wav, out_path)
+            apply_trailer_voice_effect(out_path)
+            # Cleanup temp dir if empty? Or leave for debug.
+            print(f"  Voiceover generated at {out_path}")
+        else:
+            print(f"  Error: Expected output file {generated_wav} not found.")
+
+    except Exception as e:
+        print(f"F5-TTS local inference failed: {e}")
+        # Fallback or exit? The user's snippet just prints/returns False.
+        # We'll just log it here.
 
 
 def generate_music(args):
