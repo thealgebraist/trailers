@@ -354,24 +354,26 @@ def generate_voiceover(args):
         full_text,
         "--output_dir",
         temp_dir,
-        "--file_prefix",
-        "metro_vo",
     ]
 
     try:
         print(f"  Running F5-TTS CLI: {' '.join(cmd)}")
         subprocess.run(cmd, check=True)
 
-        # F5-TTS likely outputs to {output_dir}/{file_prefix}.wav
-        generated_wav = f"{temp_dir}/metro_vo.wav"
+        # F5-TTS output filename is not specified without --file_prefix, so we find the first .wav
+        generated_wav = None
+        for file in os.listdir(temp_dir):
+            if file.endswith(".wav"):
+                generated_wav = os.path.join(temp_dir, file)
+                break
 
-        if os.path.exists(generated_wav):
+        if generated_wav and os.path.exists(generated_wav):
             os.replace(generated_wav, out_path)
             apply_trailer_voice_effect(out_path)
             # Cleanup temp dir if empty? Or leave for debug.
             print(f"  Voiceover generated at {out_path}")
         else:
-            print(f"  Error: Expected output file {generated_wav} not found.")
+            print(f"  Error: No wav file found in {temp_dir}")
 
     except Exception as e:
         print(f"F5-TTS local inference failed: {e}")
