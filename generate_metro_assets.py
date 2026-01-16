@@ -46,9 +46,21 @@ SCENES = [
     ("15_memory_wipe", "Flash of white light, person looking dazed and empty, pupil dilated, bright overexposed", "camera flash capacitor charge high pitch ring"),
     ("16_genetic_sieve", "Blood sample passing through glowing filter, DNA strands visible, microscopic view", "liquid pumping bubbling biological squish"),
     ("17_final_stamp", "Hot branding iron stamping 'APPROVED' on a forehead, steam rising, skin texture", "sizzling burning sound heavy stamp thud"),
-    ("18_platform", "Empty endless subway platform, sleek white tiles, ominous silence, vanishing point", "empty room tone distant train rumble fluorescent hum"),
-    ("19_train_interior", "Inside metro train, minimalist grey seats, sad people staring at feet, uniform grey clothing, sterile", "subway train interior rumble wheels on track rhythmic clacking"),
-    ("20_title_card", "Text 'METRO' in minimal sans-serif font, glowing white on black background, cinematic typography", "deep bass boom cinematic hit silence"),
+    ("18_nail_pull", "Automated pliers extracting a single fingernail for mineral analysis, clinical cold lighting", "sharp metallic snap scream muffled"),
+    ("19_skin_swatch", "Robotic laser cutter removing a small square of skin from a forearm, precise glowing line", "laser sizzle clinical beep"),
+    ("20_tooth_scan", "Mechanical mouth spreader exposing teeth, blue UV light scanning for dental records", "dental drill whine high frequency vibration"),
+    ("21_pulse_monitor", "Heavy iron collar with glowing sensors measuring heartbeat, cold metallic texture", "rhythmic thumping deep bass"),
+    ("22_tear_collector", "Glass vial catching a single tear from an eye held open by metal retractors", "dripping sound glass tinkling"),
+    ("23_brain_map", "Transparent skull cap with pulsing neon neurons, mapping brain activity in real time", "electrical static brainwave hum"),
+    ("24_shadow_audit", "Person standing against a white wall while their shadow is measured by laser sensors", "laser sweeping digital clicking"),
+    ("25_breath_tax", "Gas mask measuring oxygen consumption, digital display showing cost per breath", "heavy breathing mechanical hiss"),
+    ("26_thought_police", "Holographic screen displaying a person's private thoughts as distorted text", "distorted whispers data processing noise"),
+    ("27_loyalty_check", "Person staring into a bright hypnotic light, pupils dilating and contracting", "low frequency pulse hypnotic hum"),
+    ("28_identity_shredder", "Old paper documents being shredded by a massive industrial machine in a dark room", "paper shredding grinding metal"),
+    ("29_platform_edge", "Crowded subway platform with people standing precariously close to the edge, yellow warning strip", "distant train roar wind rushing"),
+    ("30_empty_carriage", "A single person sitting in a vast empty metro carriage, flickering fluorescent lights", "rhythmic train clatter flickering light buzz"),
+    ("31_train_interior", "Inside metro train, minimalist grey seats, sad people staring at feet, uniform grey clothing, sterile", "subway train interior rumble wheels on track rhythmic clacking"),
+    ("32_title_card", "Text 'METRO' in minimal sans-serif font, glowing white on black background, cinematic typography", "deep bass boom cinematic hit silence"),
 ]
 
 # Voiceover Script (Sarcastic, Terse, Deep Voice)
@@ -71,9 +83,21 @@ Karma weighing. Your sins are heavy. You will pay extra.
 Dream extraction. Leave your hopes here. You won't need them.
 Memory wipe. Forget why you came. Forget who you are.
 Genetic sieve. You are filtered. You are processed.
-Final stamp. Approved. You are now a passenger.
-Welcome to the platform. The wait is eternal.
-Board the train. Sit down. Be sad.
+Final stamp. Approved.
+Nail extraction. Mineral analysis complete.
+Skin swatch. DNA archived.
+Dental audit. Smile for the state.
+Heartbeat synchronization. Your pulse is erratic. Calm down.
+Lacrimal collection. Your tears are salty. And inefficient.
+Neurological mapping. We know what you are thinking.
+Shadow measurement. You are slightly too large. Shrink.
+Respiration tax. Every breath has a price.
+Thought audit. Your ideas are... non-compliant.
+Hypnotic loyalty check. You will obey. You have no choice.
+Identity shredding. Your past is gone.
+Platform approach. Mind the gap. Between your life and the void.
+Eternal transit. The train is coming.
+Sit down. Be sad.
 This is the Metro.
 We are going nowhere.
 Fast.
@@ -86,7 +110,7 @@ def generate_images(args):
     quant = args.quant
     offload = args.offload
 
-    print(f"--- Generating 20 {model_id} Images ({steps} steps) on {DEVICE} ---")
+    print(f"--- Generating {len(SCENES)} {model_id} Images ({steps} steps) on {DEVICE} ---")
     print(f"Quantization: {quant}, CPU Offload: {offload}")
     
     pipe_kwargs = {
