@@ -4,6 +4,7 @@ import sys
 import numpy as np
 import scipy.io.wavfile as wavfile
 import argparse
+import utils
 from diffusers import DiffusionPipeline, StableAudioPipeline
 from transformers import pipeline
 from PIL import Image
@@ -109,9 +110,10 @@ def generate_images(args):
     guidance = args.guidance
     quant = args.quant
     offload = args.offload
+    use_scalenorm = args.scalenorm
 
     print(f"--- Generating {len(SCENES)} {model_id} Images ({steps} steps) on {DEVICE} ---")
-    print(f"Quantization: {quant}, CPU Offload: {offload}")
+    print(f"Quantization: {quant}, CPU Offload: {offload}, ScaleNorm: {use_scalenorm}")
     
     pipe_kwargs = {
         "torch_dtype": torch.bfloat16 if DEVICE == "cuda" else torch.float32,
@@ -122,7 +124,6 @@ def generate_images(args):
         backend = "bitsandbytes_4bit" if quant == "4bit" else "bitsandbytes_8bit"
         quant_kwargs = {"load_in_4bit": True} if quant == "4bit" else {"load_in_8bit": True}
         
-        # bitsandbytes 8bit prefers float16
         if quant == "8bit":
             pipe_kwargs["torch_dtype"] = torch.float16
 
@@ -134,11 +135,14 @@ def generate_images(args):
     
     pipe = DiffusionPipeline.from_pretrained(model_id, **pipe_kwargs)
     
+    utils.remove_weight_norm(pipe)
+    if use_scalenorm:
+        print("Applying ScaleNorm improvement to transformer...")
+        utils.apply_scalenorm_to_transformer(pipe.transformer)
+
     if offload and DEVICE == "cuda":
         pipe.enable_model_cpu_offload()
     elif quant != "none" and DEVICE == "cuda":
-        # When using bitsandbytes, the quantized component (transformer) is already on GPU.
-        # We move other components (VAE, text encoders) manually.
         print("Moving non-quantized components to GPU...")
         for name, component in pipe.components.items():
             if name != "transformer" and hasattr(component, "to"):
@@ -157,9 +161,13 @@ def generate_images(args):
     del pipe
     torch.cuda.empty_cache()
 
-def generate_sfx():
+def generate_sfx(args):
     print(f"--- Generating SFX with Stable Audio Open on {DEVICE} ---")
     pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
+    
+    utils.remove_weight_norm(pipe)
+    if args.scalenorm:
+        utils.apply_scalenorm_to_transformer(pipe.transformer)
 
     os.makedirs(f"{ASSETS_DIR}/sfx", exist_ok=True)
 
@@ -167,9 +175,7 @@ def generate_sfx():
         out_path = f"{ASSETS_DIR}/sfx/{s_id}.wav"
         if not os.path.exists(out_path):
             print(f"Generating SFX for: {s_id} -> {sfx_prompt}")
-            # Stable Audio Open generates 44.1kHz audio
             audio = pipe(sfx_prompt, num_inference_steps=100, audio_end_in_s=12.0).audios[0]
-            # audio is [channels, samples]
             audio_np = audio.T.cpu().numpy()
             wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16)) 
             
@@ -177,7 +183,7 @@ def generate_sfx():
     torch.cuda.empty_cache()
 
 def generate_voiceover():
-    print(f"--- Generating Voiceover with Full Bark on {DEVICE} ---")
+    print(f"--- Generating Voiceover with Bark on {DEVICE} ---")
     os.makedirs(f"{ASSETS_DIR}/voice", exist_ok=True)
     
     out_path = f"{ASSETS_DIR}/voice/voiceover_full.wav"
@@ -237,10 +243,11 @@ if __name__ == "__main__":
     parser.add_argument("--guidance", type=float, default=DEFAULT_GUIDANCE, help="Guidance scale")
     parser.add_argument("--quant", type=str, default=DEFAULT_QUANT, choices=["none", "4bit", "8bit"], help="Quantization type")
     parser.add_argument("--offload", action="store_true", help="Enable CPU offload")
+    parser.add_argument("--scalenorm", action="store_true", help="Use ScaleNorm instead of LayerNorm")
     
     args = parser.parse_args()
 
     generate_images(args)
-    generate_sfx()
+    generate_sfx(args)
     generate_voiceover()
     generate_music()

@@ -5,6 +5,7 @@ import numpy as np
 import scipy.io.wavfile as wavfile
 import requests
 import argparse
+import utils
 from diffusers import DiffusionPipeline, StableAudioPipeline
 from transformers import pipeline
 from PIL import Image
@@ -79,9 +80,10 @@ def generate_images(args):
     guidance = args.guidance
     quant = args.quant
     offload = args.offload
+    use_scalenorm = args.scalenorm
 
     print(f"--- Generating {len(SCENES)} {model_id} Images ({steps} steps) ---")
-    print(f"Quantization: {quant}, CPU Offload: {offload}")
+    print(f"Quantization: {quant}, CPU Offload: {offload}, ScaleNorm: {use_scalenorm}")
     
     pipe_kwargs = {
         "torch_dtype": torch.bfloat16 if DEVICE == "cuda" else torch.float32,
@@ -92,7 +94,6 @@ def generate_images(args):
         backend = "bitsandbytes_4bit" if quant == "4bit" else "bitsandbytes_8bit"
         quant_kwargs = {"load_in_4bit": True} if quant == "4bit" else {"load_in_8bit": True}
         
-        # bitsandbytes 8bit prefers float16
         if quant == "8bit":
             pipe_kwargs["torch_dtype"] = torch.float16
 
@@ -104,11 +105,13 @@ def generate_images(args):
     
     pipe = DiffusionPipeline.from_pretrained(model_id, **pipe_kwargs)
     
+    utils.remove_weight_norm(pipe)
+    if use_scalenorm:
+        utils.apply_scalenorm_to_transformer(pipe.transformer)
+
     if offload and DEVICE == "cuda":
         pipe.enable_model_cpu_offload()
     elif quant != "none" and DEVICE == "cuda":
-        # When using bitsandbytes, the quantized component (transformer) is already on GPU.
-        # We move other components (VAE, text encoders) manually.
         print("Moving non-quantized components to GPU...")
         for name, component in pipe.components.items():
             if name != "transformer" and hasattr(component, "to"):
@@ -126,9 +129,14 @@ def generate_images(args):
     del pipe
     torch.cuda.empty_cache()
 
-def generate_sfx():
+def generate_sfx(args):
     print(f"--- Generating SFX with Stable Audio Open ---")
     pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
+    
+    utils.remove_weight_norm(pipe)
+    if args.scalenorm:
+        utils.apply_scalenorm_to_transformer(pipe.transformer)
+
     os.makedirs(f"{ASSETS_DIR}/sfx", exist_ok=True)
     for s_id, _, sfx_prompt in SCENES:
         out_path = f"{ASSETS_DIR}/sfx/{s_id}.wav"
@@ -198,7 +206,6 @@ def generate_music():
     if os.path.exists(out_path): return
 
     synthesiser = pipeline("text-to-audio", "facebook/musicgen-large", device=DEVICE)
-    # Montage of music styles as described
     prompts = [
         "dark industrial synth drone, metallic, sci-fi horror",
         "warm acoustic Americana guitar, rural, nostalgic",
@@ -225,10 +232,11 @@ if __name__ == "__main__":
     parser.add_argument("--guidance", type=float, default=DEFAULT_GUIDANCE, help="Guidance scale")
     parser.add_argument("--quant", type=str, default=DEFAULT_QUANT, choices=["none", "4bit", "8bit"], help="Quantization type")
     parser.add_argument("--offload", action="store_true", help="Enable CPU offload")
+    parser.add_argument("--scalenorm", action="store_true", help="Use ScaleNorm instead of LayerNorm")
 
     args = parser.parse_args()
 
     generate_images(args)
-    generate_sfx()
+    generate_sfx(args)
     generate_voiceover()
     generate_music()
