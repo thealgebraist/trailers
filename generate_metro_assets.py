@@ -264,7 +264,8 @@ def generate_images(args):
             bnb_4bit_compute_dtype=bnb_4bit_compute_dtype,
         )
         pipe_kwargs["transformer_quantization_config"] = quant_config
-        pipe_kwargs["device_map"] = "balanced"
+        if not offload:
+            pipe_kwargs["device_map"] = "balanced"
 
     is_local = os.path.isdir(model_id)
     pipe = DiffusionPipeline.from_pretrained(
