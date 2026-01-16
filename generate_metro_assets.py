@@ -21,7 +21,7 @@ if DEVICE == "cuda":
         IS_H200 = True
 
 MODEL_ID = "black-forest-labs/FLUX.1-dev" if IS_H200 else "black-forest-labs/FLUX.1-schnell"
-STEPS = 64 if IS_H200 else 4
+STEPS = 64 if IS_H200 else 16
 GUIDANCE = 3.5 if IS_H200 else 0.0 # Schnell usually uses 0 guidance
 
 # Scene Definitions (Prompts & SFX Prompts)
@@ -80,8 +80,8 @@ def generate_images():
     print(f"--- Generating 20 {MODEL_ID} Images ({STEPS} steps) on {DEVICE} ---")
     
     if not IS_H200 and DEVICE == "cuda":
-        from diffusers import BitsAndBytesConfig
-        quantization_config = BitsAndBytesConfig(load_in_4bit=True)
+        from diffusers import QuantoConfig
+        quantization_config = QuantoConfig(weights="int8")
         pipe = DiffusionPipeline.from_pretrained(
             MODEL_ID, 
             quantization_config=quantization_config, 

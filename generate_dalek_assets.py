@@ -74,8 +74,8 @@ def generate_images():
     print(f"--- Generating {len(SCENES)} {MODEL_ID} Images ({STEPS} steps) ---")
     
     if not IS_H200 and DEVICE == "cuda":
-        from diffusers import BitsAndBytesConfig
-        quantization_config = BitsAndBytesConfig(load_in_4bit=True)
+        from diffusers import QuantoConfig
+        quantization_config = QuantoConfig(weights="int8")
         pipe = DiffusionPipeline.from_pretrained(
             MODEL_ID, 
             quantization_config=quantization_config, 
