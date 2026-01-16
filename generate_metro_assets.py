@@ -337,48 +337,104 @@ def apply_trailer_voice_effect(input_path):
 def generate_voiceover(args):
     print(f"--- Generating Voiceover with F5-TTS (Local CLI) on {DEVICE} ---")
     os.makedirs(f"{ASSETS_DIR}/voice", exist_ok=True)
-    out_path = f"{ASSETS_DIR}/voice/voiceover_full.wav"
-    if os.path.exists(out_path):
-        return
+    out_path_full = f"{ASSETS_DIR}/voice/voiceover_full.wav"
 
-    full_text = VO_SCRIPT.replace("\n", " ").strip()
+    # Clean up potentially partial runs or old files is a bit aggressive,
+    # but we will just ensure we generate what's needed.
 
-    # We use a temp directory name matching the user's snippet preference if desired,
-    # but let's stick to the assets structure or a temporary one.
+    # Parse lines
+    lines = [l.strip() for l in VO_SCRIPT.split("\n") if l.strip()]
+
+    # We use a temp directory for F5-TTS outputs
     temp_dir = f"{ASSETS_DIR}/voice/f5_temp"
     os.makedirs(temp_dir, exist_ok=True)
 
-    cmd = [
-        "f5-tts_infer-cli",
-        "--gen_text",
-        full_text,
-        "--output_dir",
-        temp_dir,
-    ]
+    full_audio_data = []
+    sampling_rate = 44100  # F5-TTS usually 44.1k or 24k, we'll read from file
 
+    for i, line in enumerate(lines):
+        # Naming convention: vo_{line_index}.wav
+        # We can also try to incorporate scene ID if needed, but line index is safer for now.
+        line_filename = f"vo_{i:03d}.wav"
+        line_out_path = f"{ASSETS_DIR}/voice/{line_filename}"
+
+        if os.path.exists(line_out_path):
+            print(f"  Skipping existing line {i}: {line[:30]}...")
+            # Load data to append to full
+            try:
+                sr, data = wavfile.read(line_out_path)
+                full_audio_data.append(data)
+                sampling_rate = sr
+            except Exception as e:
+                print(f"    Error reading {line_out_path}: {e}")
+            continue
+
+        print(f"  Generating line {i}: {line[:30]}...")
+
+        # F5-TTS command
+        cmd = [
+            "f5-tts_infer-cli",
+            "--gen_text",
+            line,
+            "--output_dir",
+            temp_dir,
+        ]
+
+        try:
+            # Clear temp dir to avoid picking up old files
+            # (Warning: this might be race-condition prone if parallel, but here it's serial)
+            for f in os.listdir(temp_dir):
+                if f.endswith(".wav"):
+                    os.remove(os.path.join(temp_dir, f))
+
+            subprocess.run(cmd, check=True)
+
+            # Find output
+            generated_wav = None
+            for file in os.listdir(temp_dir):
+                if file.endswith(".wav"):
+                    generated_wav = os.path.join(temp_dir, file)
+                    break
+
+            if generated_wav and os.path.exists(generated_wav):
+                # Move to final destination
+                os.replace(generated_wav, line_out_path)
+                apply_trailer_voice_effect(line_out_path)
+
+                # Append to full
+                sr, data = wavfile.read(line_out_path)
+                full_audio_data.append(data)
+                sampling_rate = sr
+
+                # Simple silence padding between lines?
+                silence = np.zeros(int(sr * 0.5), dtype=data.dtype)
+                full_audio_data.append(silence)
+
+            else:
+                print(f"  Error: No output found for line {i}")
+
+        except Exception as e:
+            print(f"  Failed to generate line {i}: {e}")
+
+    # Concatenate and save full
+    if full_audio_data:
+        # Check for consistent shapes (mono vs stereo)
+        # Assuming F5-TTS is mono usually.
+        try:
+            combined = np.concatenate(full_audio_data)
+            wavfile.write(out_path_full, sampling_rate, combined)
+            print(f"  Full voiceover saved to {out_path_full}")
+        except ValueError as e:
+            print(f"  Error concatenating audio (shape mismatch?): {e}")
+
+    # Cleanup temp dir
     try:
-        print(f"  Running F5-TTS CLI: {' '.join(cmd)}")
-        subprocess.run(cmd, check=True)
-
-        # F5-TTS output filename is not specified without --file_prefix, so we find the first .wav
-        generated_wav = None
-        for file in os.listdir(temp_dir):
-            if file.endswith(".wav"):
-                generated_wav = os.path.join(temp_dir, file)
-                break
-
-        if generated_wav and os.path.exists(generated_wav):
-            os.replace(generated_wav, out_path)
-            apply_trailer_voice_effect(out_path)
-            # Cleanup temp dir if empty? Or leave for debug.
-            print(f"  Voiceover generated at {out_path}")
-        else:
-            print(f"  Error: No wav file found in {temp_dir}")
-
-    except Exception as e:
-        print(f"F5-TTS local inference failed: {e}")
-        # Fallback or exit? The user's snippet just prints/returns False.
-        # We'll just log it here.
+        if os.path.exists(temp_dir):
+            for f in os.listdir(temp_dir):
+                os.remove(os.path.join(temp_dir, f))
+            os.rmdir(temp_dir)
+    except Exception:
+        pass
 
 
 def generate_music(args):
