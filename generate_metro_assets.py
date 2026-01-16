@@ -137,7 +137,7 @@ def generate_sfx():
         if not os.path.exists(out_path):
             print(f"Generating SFX for: {s_id} -> {sfx_prompt}")
             # Stable Audio Open generates 44.1kHz audio
-            audio = pipe(sfx_prompt, num_inference_steps=100, audio_length_in_s=12.0).audios[0]
+            audio = pipe(sfx_prompt, num_inference_steps=100, audio_end_in_s=12.0).audios[0]
             # audio is [channels, samples]
             audio_np = audio.T.cpu().numpy()
             wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16)) 
@@ -210,86 +210,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     generate_images(args)
-    generate_sfx()
-    generate_voiceover()
-    generate_music()
-
-
-def generate_sfx():
-    print(f"--- Generating SFX with Stable Audio Open on {DEVICE} ---")
-    pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
-
-    os.makedirs(f"{ASSETS_DIR}/sfx", exist_ok=True)
-
-    for s_id, _, sfx_prompt in SCENES:
-        out_path = f"{ASSETS_DIR}/sfx/{s_id}.wav"
-        if not os.path.exists(out_path):
-            print(f"Generating SFX for: {s_id} -> {sfx_prompt}")
-            # Stable Audio Open generates 44.1kHz audio
-            audio = pipe(sfx_prompt, num_inference_steps=100, audio_length_in_s=12.0).audios[0]
-            # audio is [channels, samples]
-            audio_np = audio.T.cpu().numpy()
-            wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16)) 
-            
-    del pipe
-    torch.cuda.empty_cache()
-
-def generate_voiceover():
-    print(f"--- Generating Voiceover with Full Bark on {DEVICE} ---")
-    os.makedirs(f"{ASSETS_DIR}/voice", exist_ok=True)
-    
-    out_path = f"{ASSETS_DIR}/voice/voiceover_full.wav"
-    if os.path.exists(out_path):
-        return
-
-    tts = pipeline("text-to-speech", model="suno/bark", device=DEVICE)
-    
-    lines = [l for l in VO_SCRIPT.split('\n') if l.strip()]
-    full_audio = []
-    
-    print(f"Synthesizing {len(lines)} lines...")
-    sampling_rate = 24000
-    for line in lines:
-        print(f"  Speaking: {line[:30]}...")
-        output = tts(line, forward_params={"history_prompt": "v2/en_speaker_6"})
-        audio_data = output["audio"]
-        sampling_rate = output["sampling_rate"]
-        
-        silence = np.zeros(int(sampling_rate * 0.8))
-        full_audio.append(audio_data.flatten())
-        full_audio.append(silence)
-        
-    combined = np.concatenate(full_audio)
-    wavfile.write(out_path, sampling_rate, (combined * 32767).astype(np.int16))
-    del tts
-    torch.cuda.empty_cache()
-
-def generate_music():
-    print(f"--- Generating Music (240s) with MusicGen-Large on {DEVICE} ---")
-    os.makedirs(f"{ASSETS_DIR}/music", exist_ok=True)
-    out_path = f"{ASSETS_DIR}/music/metro_theme.wav"
-    
-    if os.path.exists(out_path):
-        return
-
-    synthesiser = pipeline("text-to-audio", "facebook/musicgen-large", device=DEVICE)
-    prompt = "eerie minimal synth drone, dark ambient, sci-fi horror soundtrack, slow pulsing deep bass, cinematic atmosphere, high quality"
-    
-    clips = []
-    sr = 32000
-    for i in range(8): # 8 * 30s = 240s
-        print(f"Generating music chunk {i+1}/8...")
-        output = synthesiser(prompt, forward_params={"max_new_tokens": 1500})
-        clips.append(output["audio"][0].flatten())
-        sr = output["sampling_rate"]
-        
-    combined = np.concatenate(clips, axis=0)
-    wavfile.write(out_path, sr, (combined * 32767).astype(np.int16))
-    del synthesiser
-    torch.cuda.empty_cache()
-
-if __name__ == "__main__":
-    generate_images()
     generate_sfx()
     generate_voiceover()
     generate_music()
