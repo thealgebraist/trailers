@@ -3,7 +3,7 @@ import os
 import sys
 import numpy as np
 import scipy.io.wavfile as wavfile
-from diffusers import DiffusionPipeline, StableAudioOpenPipeline
+from diffusers import DiffusionPipeline, StableAudioPipeline
 from transformers import pipeline
 from PIL import Image
 
@@ -82,7 +82,7 @@ def generate_images():
 
 def generate_sfx():
     print(f"--- Generating SFX with Stable Audio Open on {DEVICE} ---")
-    pipe = StableAudioOpenPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
+    pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
 
     os.makedirs(f"{ASSETS_DIR}/sfx", exist_ok=True)
 
