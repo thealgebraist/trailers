@@ -64,9 +64,54 @@ SCENES = [
     ("32_title_card", "Text 'METRO' in minimal sans-serif font, glowing white on black background, cinematic typography", "deep bass boom cinematic hit silence"),
 ]
 
+# Voiceover Script (Sarcastic, Terse, Deep Voice)
+VO_SCRIPT = """
+Welcome to the Metro. 
+The future of transit is secure. 
+For your safety, we require a few... verifications.
+Face scan. Don't blink. We need to see the fear in your eyes.
+Finger scan. Press harder. Until it hurts. Good.
+Olfactory analysis. You smell like anxiety. And cheap coffee.
+Torso imprint. The slime is sterile. Mostly.
+Tongue print. Taste the sensor. It tastes like copper. And submission.
+Retina check. Keep your eye open. The laser is warm.
+Auricular sampling. We are listening to your thoughts. Through your earwax.
+Follicle audit. One hair. Two hair. Three. We are counting.
+Sweat extraction. Perspire for the state. Your fluids are data.
+Bone density verification. Just a little pressure. To ensure you are solid.
+Spirit photography. Your aura is grey. How disappointing.
+Karma weighing. Your sins are heavy. You will pay extra.
+Dream extraction. Leave your hopes here. You won't need them.
+Memory wipe. Forget why you came. Forget who you are.
+Genetic sieve. You are filtered. You are processed.
+Final stamp. Approved.
+Nail extraction. Mineral analysis complete.
+Skin swatch. DNA archived.
+Dental audit. Smile for the state.
+Heartbeat synchronization. Your pulse is erratic. Calm down.
+Lacrimal collection. Your tears are salty. And inefficient.
+Neurological mapping. We know what you are thinking.
+Shadow measurement. You are slightly too large. Shrink.
+Respiration tax. Every breath has a price.
+Thought audit. Your ideas are... non-compliant.
+Hypnotic loyalty check. You will obey. You have no choice.
+Identity shredding. Your past is gone.
+Platform approach. Mind the gap. Between your life and the void.
+Eternal transit. The train is coming.
+Sit down. Be sad.
+This is the Metro.
+We are going nowhere.
+Fast.
+"""
+
 def generate_images(args):
-    model_id = args.model
-    steps = args.steps
+    if args.flux2:
+        model_id = args.flux2
+        steps = args.steps if args.steps != DEFAULT_STEPS else 32
+    else:
+        model_id = args.model
+        steps = args.steps
+
     guidance = args.guidance
     quant = args.quant
     offload = args.offload
@@ -93,7 +138,9 @@ def generate_images(args):
             components_to_quantize=["transformer"]
         )
     
-    pipe = DiffusionPipeline.from_pretrained(model_id, **pipe_kwargs)
+    # Use local_files_only=True if a path is provided to ensure it loads from the specified dir
+    is_local = os.path.isdir(model_id)
+    pipe = DiffusionPipeline.from_pretrained(model_id, local_files_only=is_local, **pipe_kwargs)
     
     utils.remove_weight_norm(pipe)
     if use_scalenorm:
@@ -186,6 +233,7 @@ def generate_music(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Metro Assets")
     parser.add_argument("--model", type=str, default=DEFAULT_MODEL, help="Model ID")
+    parser.add_argument("--flux2", type=str, help="Path to FLUX.2 model directory (sets steps to 32)")
     parser.add_argument("--steps", type=int, default=DEFAULT_STEPS, help="Inference steps")
     parser.add_argument("--guidance", type=float, default=DEFAULT_GUIDANCE, help="Guidance scale")
     parser.add_argument("--quant", type=str, default=DEFAULT_QUANT, choices=["none", "4bit", "8bit"], help="Quantization type")

@@ -87,8 +87,13 @@ A Dalek Comes Home.
 """
 
 def generate_images(args):
-    model_id = args.model
-    steps = args.steps
+    if args.flux2:
+        model_id = args.flux2
+        steps = args.steps if args.steps != DEFAULT_STEPS else 32
+    else:
+        model_id = args.model
+        steps = args.steps
+
     guidance = args.guidance
     quant = args.quant
     offload = args.offload
@@ -115,7 +120,8 @@ def generate_images(args):
             components_to_quantize=["transformer"]
         )
     
-    pipe = DiffusionPipeline.from_pretrained(model_id, **pipe_kwargs)
+    is_local = os.path.isdir(model_id)
+    pipe = DiffusionPipeline.from_pretrained(model_id, local_files_only=is_local, **pipe_kwargs)
     
     utils.remove_weight_norm(pipe)
     if use_scalenorm:
@@ -202,6 +208,7 @@ def generate_music(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Dalek Assets")
     parser.add_argument("--model", type=str, default=DEFAULT_MODEL, help="Model ID")
+    parser.add_argument("--flux2", type=str, help="Path to FLUX.2 model directory (sets steps to 32)")
     parser.add_argument("--steps", type=int, default=DEFAULT_STEPS, help="Inference steps")
     parser.add_argument("--guidance", type=float, default=DEFAULT_GUIDANCE, help="Guidance scale")
     parser.add_argument("--quant", type=str, default=DEFAULT_QUANT, choices=["none", "4bit", "8bit"], help="Quantization type")

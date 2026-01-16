@@ -42,7 +42,7 @@ SCENES = [
     ("10_chimp_reaching", "Close up of a chimpanzee's hand reaching out to touch a glowing golden banana, 8k, pixar style", "tense mid-pitch synth swell textured heart thud"),
     ("11_chimp_guard", "A large grumpy gorilla guard wearing a suit and sunglasses, standing in front of the golden banana, 8k, pixar style", "deep gorilla grunt textured heavy footsteps"),
     ("12_chimp_distraction", "A chimpanzee throwing a handful of colorful marbles to distract the gorilla guard, marbles rolling everywhere, 8k, pixar style", "marbles clattering on floor textured glass rolling"),
-    ("13_chimp_sneaking", "A chimpanzee tip-toeing past the distracted guard on a shiny marble floor, funny pose, 8k, pixar style", "squeaky rubber shoe sound textured tip-toe rhythmic"),
+    ("13_chimp_sneaking", "A chimpanzee tip-toeing past the distracted guard on a shiny marble floor, funny heartbeat rhythm, 8k, pixar style", "squeaky rubber shoe sound textured tip-toe rhythmic"),
     ("14_chimp_grab", "A chimpanzee's hand finally grasping the glowing golden banana, sparkle effects, 8k, pixar style", "magical sparkle sound textured mid-pitch shimmer"),
     ("15_chimp_escape", "A chimpanzee jumping through a fruit-shaped window with the golden banana, glass shattering into fruit slices, 8k, pixar style", "glass shattering sound textured fruit squelch"),
     ("16_chimp_chase", "A fleet of hover-fruit vehicles chasing the chimpanzee through the fruit city streets, 8k, pixar style", "hovercraft hum textured mid-pitch engine whine"),
@@ -78,8 +78,13 @@ Coming this Summer.
 """
 
 def generate_images(args):
-    model_id = args.model
-    steps = args.steps
+    if args.flux2:
+        model_id = args.flux2
+        steps = args.steps if args.steps != DEFAULT_STEPS else 32
+    else:
+        model_id = args.model
+        steps = args.steps
+
     guidance = args.guidance
     quant = args.quant
     offload = args.offload
@@ -106,7 +111,8 @@ def generate_images(args):
             components_to_quantize=["transformer"]
         )
     
-    pipe = DiffusionPipeline.from_pretrained(model_id, **pipe_kwargs)
+    is_local = os.path.isdir(model_id)
+    pipe = DiffusionPipeline.from_pretrained(model_id, local_files_only=is_local, **pipe_kwargs)
     
     utils.remove_weight_norm(pipe)
     if use_scalenorm:
@@ -192,6 +198,7 @@ def generate_music(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Chimp Assets")
     parser.add_argument("--model", type=str, default=DEFAULT_MODEL, help="Model ID")
+    parser.add_argument("--flux2", type=str, help="Path to FLUX.2 model directory (sets steps to 32)")
     parser.add_argument("--steps", type=int, default=DEFAULT_STEPS, help="Inference steps")
     parser.add_argument("--guidance", type=float, default=DEFAULT_GUIDANCE, help="Guidance scale")
     parser.add_argument("--quant", type=str, default=DEFAULT_QUANT, choices=["none", "4bit", "8bit"], help="Quantization type")

@@ -21,19 +21,32 @@ class LayerNorm(nn.LayerNorm):
 def remove_weight_norm(model):
     # Handle diffusers pipelines by iterating over components
     if hasattr(model, "components"):
-        for name, component in model.components.items():
-            if isinstance(component, nn.Module):
-                remove_weight_norm(component)
-        return
+        components = model.components
+        if isinstance(components, dict):
+            for name, component in components.items():
+                if isinstance(component, nn.Module):
+                    remove_weight_norm(component)
+            return
 
     # Handle standard torch modules
-    for name, module in model.named_modules():
-        try:
-            if hasattr(module, 'weight_g'):
-                # print(f"Removing weight norm from {name}")
-                torch.nn.utils.remove_weight_norm(module)
-        except Exception:
-            pass
+    if hasattr(model, "named_modules"):
+        for name, module in model.named_modules():
+            try:
+                if hasattr(module, "weight_g"):
+                    # print(f"Removing weight norm from {name}")
+                    torch.nn.utils.remove_weight_norm(module)
+            except Exception:
+                pass
+    elif not isinstance(model, nn.Module):
+        # If it's not a module and doesn't have components, try to find modules in attributes
+        for attr_name in dir(model):
+            if not attr_name.startswith("_"):
+                try:
+                    attr = getattr(model, attr_name)
+                    if isinstance(attr, nn.Module):
+                        remove_weight_norm(attr)
+                except Exception:
+                    pass
 
 def apply_stability_improvements(transformer, use_scalenorm=False):
     """

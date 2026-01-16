@@ -64,9 +64,25 @@ SCENES = [
     ("32_forest_upside_down", "Cinematic forest upside down glitch art, high detail, masterpiece, 8k", "inverted nature sounds textured leaves rustling"),
 ]
 
+VO_PROMPT = """
+In a world made of pure computational error. Where the geometry is just a suggestion. 
+And the faces are melting into the pavement. This summer, experience the horror of glitch. 
+No one is safe from the artifact. We are all just data in a corrupted drive. 
+The Uncanny Valley is no longer a place, it is a state of being. 
+Witness the dissolution of reality. The end of the pixel. The beginning of the noise.
+Everything you know is being overwritten. 
+Do not trust your eyes. Do not trust your ears. 
+The sloppy era has arrived.
+"""
+
 def generate_images(args):
-    model_id = args.model
-    steps = args.steps
+    if args.flux2:
+        model_id = args.flux2
+        steps = args.steps if args.steps != DEFAULT_STEPS else 32
+    else:
+        model_id = args.model
+        steps = args.steps
+
     guidance = args.guidance
     quant = args.quant
     offload = args.offload
@@ -93,7 +109,8 @@ def generate_images(args):
             components_to_quantize=["transformer"]
         )
     
-    pipe = DiffusionPipeline.from_pretrained(model_id, **pipe_kwargs)
+    is_local = os.path.isdir(model_id)
+    pipe = DiffusionPipeline.from_pretrained(model_id, local_files_only=is_local, **pipe_kwargs)
     
     utils.remove_weight_norm(pipe)
     if use_scalenorm:
@@ -138,7 +155,7 @@ def generate_sfx(args):
     torch.cuda.empty_cache()
 
 def generate_voiceover(args):
-    print(f"--- Generating Voiceover with Stable Audio ---")
+    print(f"--- Generating Voiceover with Stable Audio on {DEVICE} ---")
     os.makedirs(f"{ASSETS_DIR}/voice", exist_ok=True)
     out_path = f"{ASSETS_DIR}/voice/voiceover_full.wav"
     if os.path.exists(out_path): return
@@ -157,7 +174,7 @@ def generate_voiceover(args):
     torch.cuda.empty_cache()
 
 def generate_music(args):
-    print(f"--- Generating Music with Stable Audio ---")
+    print(f"--- Generating Music with Stable Audio on {DEVICE} ---")
     os.makedirs(f"{ASSETS_DIR}/music", exist_ok=True)
     out_path = f"{ASSETS_DIR}/music/sloppy_theme.wav"
     if os.path.exists(out_path): return
@@ -178,6 +195,7 @@ def generate_music(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Sloppy Assets")
     parser.add_argument("--model", type=str, default=DEFAULT_MODEL, help="Model ID")
+    parser.add_argument("--flux2", type=str, help="Path to FLUX.2 model directory (sets steps to 32)")
     parser.add_argument("--steps", type=int, default=DEFAULT_STEPS, help="Inference steps")
     parser.add_argument("--guidance", type=float, default=DEFAULT_GUIDANCE, help="Guidance scale")
     parser.add_argument("--quant", type=str, default=DEFAULT_QUANT, choices=["none", "4bit", "8bit"], help="Quantization type")
