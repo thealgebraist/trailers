@@ -6,7 +6,7 @@ import scipy.io.wavfile as wavfile
 import argparse
 import utils
 from diffusers import DiffusionPipeline, StableAudioPipeline
-from transformers import BarkModel, AutoProcessor
+from transformers import BarkModel, AutoProcessor, BitsAndBytesConfig
 from PIL import Image
 
 # --- Configuration & Defaults ---
@@ -257,20 +257,14 @@ def generate_images(args):
     }
 
     if quant != "none" and DEVICE == "cuda":
-        from diffusers import PipelineQuantizationConfig
-
-        backend = "bitsandbytes_4bit" if quant == "4bit" else "bitsandbytes_8bit"
-        quant_kwargs = (
-            {"load_in_4bit": True} if quant == "4bit" else {"load_in_8bit": True}
+        bnb_4bit_compute_dtype = torch.bfloat16 if IS_H200 else torch.float16
+        quant_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=bnb_4bit_compute_dtype,
         )
-        if quant == "8bit":
-            pipe_kwargs["torch_dtype"] = torch.float16
-
-        pipe_kwargs["quantization_config"] = PipelineQuantizationConfig(
-            quant_backend=backend,
-            quant_kwargs=quant_kwargs,
-            components_to_quantize=["transformer"],
-        )
+        pipe_kwargs["transformer_quantization_config"] = quant_config
+        pipe_kwargs["device_map"] = "balanced"
 
     is_local = os.path.isdir(model_id)
     pipe = DiffusionPipeline.from_pretrained(
