@@ -278,12 +278,7 @@ def generate_images(args):
 
     if offload and DEVICE == "cuda":
         pipe.enable_model_cpu_offload()
-    elif quant != "none" and DEVICE == "cuda":
-        print("Moving non-quantized components to GPU...")
-        for name, component in pipe.components.items():
-            if name != "transformer" and hasattr(component, "to"):
-                component.to(DEVICE)
-    else:
+    elif quant == "none" and DEVICE == "cuda":
         pipe.to(DEVICE)
 
     os.makedirs(f"{ASSETS_DIR}/images", exist_ok=True)
