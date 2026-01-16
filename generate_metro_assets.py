@@ -18,8 +18,12 @@ from PIL import Image
 # --- Configuration & Defaults ---
 PROJECT_NAME = "metro"
 ASSETS_DIR = f"assets_{PROJECT_NAME}"
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-DTYPE = torch.bfloat16 if DEVICE == "cuda" else torch.float32
+DEVICE = (
+    "cuda"
+    if torch.cuda.is_available()
+    else ("mps" if torch.backends.mps.is_available() else "cpu")
+)
+DTYPE = torch.bfloat16 if DEVICE in ["cuda", "mps"] else torch.float32
 
 # H200 Detection for default behavior
 IS_H200 = False
@@ -32,9 +36,10 @@ if DEVICE == "cuda":
 DEFAULT_MODEL = (
     "black-forest-labs/FLUX.1-dev" if IS_H200 else "black-forest-labs/FLUX.1-schnell"
 )
-DEFAULT_STEPS = 64 if IS_H200 else 16
+DEFAULT_STEPS = 64 if IS_H200 else 4  # Schnell needs fewer steps (4-8)
 DEFAULT_GUIDANCE = 3.5 if IS_H200 else 0.0
-DEFAULT_QUANT = "none" if IS_H200 else "4bit"
+# Disable quantization on MPS to avoid bitsandbytes incompatibility, rely on offload
+DEFAULT_QUANT = "4bit" if (DEVICE == "cuda" and not IS_H200) else "none"
 
 # Scene Definitions (Prompts & SFX Prompts)
 SCENES = [
@@ -284,10 +289,10 @@ def generate_images(args):
     if use_scalenorm:
         utils.apply_stability_improvements(pipe.transformer, use_scalenorm=True)
 
-    if (offload or not IS_H200) and DEVICE == "cuda":
-        print("Enabling Model CPU Offload for VRAM efficiency...")
+    if (offload or not IS_H200) and (DEVICE == "cuda" or DEVICE == "mps"):
+        print(f"Enabling Model CPU Offload for VRAM efficiency on {DEVICE}...")
         pipe.enable_model_cpu_offload()
-    elif DEVICE == "cuda":
+    elif DEVICE == "cuda" or DEVICE == "mps":
         pipe.to(DEVICE)
 
     os.makedirs(f"{ASSETS_DIR}/images", exist_ok=True)
