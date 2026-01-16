@@ -7,8 +7,12 @@ import argparse
 import utils
 import subprocess
 import gc
+import warnings
 from diffusers import DiffusionPipeline, StableAudioPipeline
 from transformers import BitsAndBytesConfig
+
+# Suppress torchsde warnings which can be spammy with Stable Audio
+warnings.filterwarnings("ignore", category=UserWarning, module="torchsde")
 from PIL import Image
 
 # --- Configuration & Defaults ---
