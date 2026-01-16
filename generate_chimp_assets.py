@@ -15,20 +15,18 @@ ASSETS_DIR = f"assets_{PROJECT_NAME}"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DTYPE = torch.bfloat16 if DEVICE == "cuda" else torch.float32
 
-# H200 Detection for default behavior
+# H200 Detection
 IS_H200 = False
 if DEVICE == "cuda":
     gpu_name = torch.cuda.get_device_name(0)
-    if "H200" in gpu_name:
-        IS_H200 = True
+    if "H200" in gpu_name: IS_H200 = True
 
-# Default values based on hardware
 DEFAULT_MODEL = "black-forest-labs/FLUX.1-dev" if IS_H200 else "black-forest-labs/FLUX.1-schnell"
 DEFAULT_STEPS = 64 if IS_H200 else 16
 DEFAULT_GUIDANCE = 3.5 if IS_H200 else 0.0
 DEFAULT_QUANT = "none" if IS_H200 else "4bit"
 
-# --- Scenes ---
+# Scenes
 SCENES = [
     ("01_chimp_map", "Close up of a cute chimpanzee wearing a tiny explorer's hat, looking intensely at a map showing a Golden Banana, cinematic lighting, 8k, pixar style", "textured mid-pitch paper rustling map unfolding"),
     ("02_chimp_packing", "A chimpanzee packing a small vintage leather suitcase with a toothbrush and a magnifying glass, cozy bedroom, cinematic lighting, 8k, pixar style", "mechanical suitcase latches clicking soft fabric movement"),
@@ -68,146 +66,92 @@ VO_PROMPT = """
 One chimp. One dream. And a ticket to the ultimate prize. 
 Across the Great Divide, to the city of legends. 
 He's not just hungry... he's on a mission. 
-But the path is guarded. The stakes are high.
-One slip could end it all.
 Experience the adventure of a lifetime. 
-From the streets of Fruit City to the heart of the jungle.
-Witness the quest that changed everything.
-The Banana Quest. 
-Coming this Summer.
+The Banana Quest. Coming this Summer.
 """
 
 def generate_images(args):
-    if args.flux2:
-        model_id = args.flux2
-        steps = args.steps if args.steps != DEFAULT_STEPS else 32
-    else:
-        model_id = args.model
-        steps = args.steps
-
-    guidance = args.guidance
-    quant = args.quant
-    offload = args.offload
-    use_scalenorm = args.scalenorm
-
-    print(f"--- Generating {len(SCENES)} {model_id} Images ({steps} steps) on {DEVICE} ---")
-    print(f"Quantization: {quant}, CPU Offload: {offload}, ScaleNorm: {use_scalenorm}")
-    
-    pipe_kwargs = {
-        "torch_dtype": torch.bfloat16 if DEVICE == "cuda" else torch.float32,
-    }
-
-    if quant != "none" and DEVICE == "cuda":
+    model_id = args.flux2 if args.flux2 else args.model
+    steps = args.steps if args.steps != DEFAULT_STEPS else (32 if args.flux2 else args.steps)
+    print(f"--- Generating {len(SCENES)} {model_id} Images ({steps} steps) ---")
+    pipe_kwargs = {"torch_dtype": torch.bfloat16 if DEVICE == "cuda" else torch.float32}
+    if args.quant != "none" and DEVICE == "cuda":
         from diffusers import PipelineQuantizationConfig
-        backend = "bitsandbytes_4bit" if quant == "4bit" else "bitsandbytes_8bit"
-        quant_kwargs = {"load_in_4bit": True} if quant == "4bit" else {"load_in_8bit": True}
-        
-        if quant == "8bit":
-            pipe_kwargs["torch_dtype"] = torch.float16
-
+        backend = "bitsandbytes_4bit" if args.quant == "4bit" else "bitsandbytes_8bit"
+        if args.quant == "8bit": pipe_kwargs["torch_dtype"] = torch.float16
         pipe_kwargs["quantization_config"] = PipelineQuantizationConfig(
-            quant_backend=backend,
-            quant_kwargs=quant_kwargs,
+            quant_backend=backend, quant_kwargs={"load_in_4bit" if args.quant == "4bit" else "load_in_8bit": True},
             components_to_quantize=["transformer"]
         )
-    
-    is_local = os.path.isdir(model_id)
-    pipe = DiffusionPipeline.from_pretrained(model_id, local_files_only=is_local, **pipe_kwargs)
-    
+    pipe = DiffusionPipeline.from_pretrained(model_id, local_files_only=os.path.isdir(model_id), **pipe_kwargs)
     utils.remove_weight_norm(pipe)
-    if use_scalenorm:
-        utils.apply_scalenorm_to_transformer(pipe.transformer)
-
-    if offload and DEVICE == "cuda":
-        pipe.enable_model_cpu_offload()
-    elif quant != "none" and DEVICE == "cuda":
-        print("Moving non-quantized components to GPU...")
+    if args.scalenorm: utils.apply_stability_improvements(pipe.transformer, use_scalenorm=True)
+    if args.offload and DEVICE == "cuda": pipe.enable_model_cpu_offload()
+    elif args.quant != "none" and DEVICE == "cuda":
         for name, component in pipe.components.items():
             if name != "transformer" and hasattr(component, "to"):
                 component.to(DEVICE)
-    else:
-        pipe.to(DEVICE)
-
+    else: pipe.to(DEVICE)
     os.makedirs(f"{ASSETS_DIR}/images", exist_ok=True)
-    
     for s_id, prompt, _ in SCENES:
         out_path = f"{ASSETS_DIR}/images/{s_id}.png"
         if not os.path.exists(out_path):
-            print(f"Generating: {s_id}")
-            image = pipe(prompt, num_inference_steps=steps, guidance_scale=guidance, width=1280, height=720).images[0]
+            image = pipe(prompt, num_inference_steps=steps, guidance_scale=args.guidance, width=1280, height=720).images[0]
             image.save(out_path)
-    del pipe
-    torch.cuda.empty_cache()
+    del pipe; torch.cuda.empty_cache()
 
 def generate_sfx(args):
-    print(f"--- Generating SFX with Stable Audio Open ---")
+    print(f"--- Generating SFX with Stable Audio ---")
     pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
     utils.remove_weight_norm(pipe)
-    if args.scalenorm:
-        utils.apply_scalenorm_to_transformer(pipe.transformer)
-
+    if args.scalenorm: utils.apply_stability_improvements(pipe.transformer, use_scalenorm=True)
     os.makedirs(f"{ASSETS_DIR}/sfx", exist_ok=True)
     for s_id, _, sfx_prompt in SCENES:
         out_path = f"{ASSETS_DIR}/sfx/{s_id}.wav"
         if not os.path.exists(out_path):
-            print(f"Generating SFX for: {s_id}")
             audio = pipe(sfx_prompt, num_inference_steps=100, audio_end_in_s=10.0).audios[0]
-            audio_np = audio.T.cpu().numpy()
-            wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16)) 
-    del pipe
-    torch.cuda.empty_cache()
+            wavfile.write(out_path, 44100, (audio.T.cpu().numpy() * 32767).astype(np.int16))
+    del pipe; torch.cuda.empty_cache()
 
 def generate_voiceover(args):
-    print(f"--- Generating Voiceover with Stable Audio ---")
+    print(f"--- Generating Voiceover with Bark (Intelligible TTS) ---")
     os.makedirs(f"{ASSETS_DIR}/voice", exist_ok=True)
     out_path = f"{ASSETS_DIR}/voice/voiceover_full.wav"
     if os.path.exists(out_path): return
-
-    pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
-    utils.remove_weight_norm(pipe)
-    if args.scalenorm:
-        utils.apply_scalenorm_to_transformer(pipe.transformer)
-
-    prompt = "An enthusiastic whimsical narrator voiceover, adventure story style, spoken word, cinematic"
-    print("Generating voiceover audio...")
-    audio = pipe(prompt, num_inference_steps=100, audio_end_in_s=45.0).audios[0]
-    audio_np = audio.T.cpu().numpy()
-    wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16))
-    del pipe
-    torch.cuda.empty_cache()
+    tts = pipeline("text-to-speech", model="suno/bark", device=DEVICE)
+    lines = [l for l in VO_PROMPT.split('\n') if l.strip()]
+    full_audio = []
+    sampling_rate = 24000
+    for line in lines:
+        print(f"  Speaking: {line[:30]}...")
+        output = tts(line, voice_preset="v2/en_speaker_9")
+        full_audio.append(output["audio"].flatten())
+        full_audio.append(np.zeros(int(output["sampling_rate"] * 0.8)))
+        sampling_rate = output["sampling_rate"]
+    wavfile.write(out_path, sampling_rate, (np.concatenate(full_audio) * 32767).astype(np.int16))
+    del tts; torch.cuda.empty_cache()
 
 def generate_music(args):
     print(f"--- Generating Music with Stable Audio ---")
     os.makedirs(f"{ASSETS_DIR}/music", exist_ok=True)
     out_path = f"{ASSETS_DIR}/music/chimp_theme.wav"
     if os.path.exists(out_path): return
-
     pipe = StableAudioPipeline.from_pretrained("stabilityai/stable-audio-open-1.0", torch_dtype=torch.float16).to(DEVICE)
     utils.remove_weight_norm(pipe)
-    if args.scalenorm:
-        utils.apply_scalenorm_to_transformer(pipe.transformer)
-
+    if args.scalenorm: utils.apply_stability_improvements(pipe.transformer, use_scalenorm=True)
     prompt = "upbeat whimsical orchestral adventure theme, funny, lighthearted, cinematic, high quality"
-    print("Generating music theme...")
     audio = pipe(prompt, num_inference_steps=100, audio_end_in_s=45.0).audios[0]
-    audio_np = audio.T.cpu().numpy()
-    wavfile.write(out_path, 44100, (audio_np * 32767).astype(np.int16))
-    del pipe
-    torch.cuda.empty_cache()
+    wavfile.write(out_path, 44100, (audio.T.cpu().numpy() * 32767).astype(np.int16))
+    del pipe; torch.cuda.empty_cache()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Chimp Assets")
-    parser.add_argument("--model", type=str, default=DEFAULT_MODEL, help="Model ID")
-    parser.add_argument("--flux2", type=str, help="Path to FLUX.2 model directory (sets steps to 32)")
-    parser.add_argument("--steps", type=int, default=DEFAULT_STEPS, help="Inference steps")
-    parser.add_argument("--guidance", type=float, default=DEFAULT_GUIDANCE, help="Guidance scale")
-    parser.add_argument("--quant", type=str, default=DEFAULT_QUANT, choices=["none", "4bit", "8bit"], help="Quantization type")
-    parser.add_argument("--offload", action="store_true", help="Enable CPU offload")
-    parser.add_argument("--scalenorm", action="store_true", help="Use ScaleNorm instead of LayerNorm")
-    
+    parser.add_argument("--model", type=str, default=DEFAULT_MODEL)
+    parser.add_argument("--flux2", type=str)
+    parser.add_argument("--steps", type=int, default=DEFAULT_STEPS)
+    parser.add_argument("--guidance", type=float, default=DEFAULT_GUIDANCE)
+    parser.add_argument("--quant", type=str, default=DEFAULT_QUANT, choices=["none", "4bit", "8bit"])
+    parser.add_argument("--offload", action="store_true")
+    parser.add_argument("--scalenorm", action="store_true")
     args = parser.parse_args()
-
-    generate_images(args)
-    generate_sfx(args)
-    generate_voiceover(args)
-    generate_music(args)
+    generate_images(args); generate_sfx(args); generate_voiceover(args); generate_music(args)
