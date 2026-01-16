@@ -22,7 +22,7 @@ if DEVICE == "cuda":
         IS_H200 = True
 
 MODEL_ID = "black-forest-labs/FLUX.1-dev" if IS_H200 else "black-forest-labs/FLUX.1-schnell"
-STEPS = 50 if IS_H200 else 4
+STEPS = 50 if IS_H200 else 16
 GUIDANCE = 3.5 if IS_H200 else 0.0
 
 # ElevenLabs Config
@@ -72,7 +72,18 @@ A Dalek Comes Home.
 
 def generate_images():
     print(f"--- Generating {len(SCENES)} {MODEL_ID} Images ({STEPS} steps) ---")
-    pipe = DiffusionPipeline.from_pretrained(MODEL_ID, torch_dtype=DTYPE).to(DEVICE)
+    
+    if not IS_H200 and DEVICE == "cuda":
+        from diffusers import BitsAndBytesConfig
+        quantization_config = BitsAndBytesConfig(load_in_4bit=True)
+        pipe = DiffusionPipeline.from_pretrained(
+            MODEL_ID, 
+            quantization_config=quantization_config, 
+            torch_dtype=torch.bfloat16
+        ).to(DEVICE)
+    else:
+        pipe = DiffusionPipeline.from_pretrained(MODEL_ID, torch_dtype=DTYPE).to(DEVICE)
+        
     os.makedirs(f"{ASSETS_DIR}/images", exist_ok=True)
     for s_id, prompt, _ in SCENES:
         out_path = f"{ASSETS_DIR}/images/{s_id}.png"

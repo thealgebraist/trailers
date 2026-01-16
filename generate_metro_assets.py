@@ -78,7 +78,17 @@ Fast.
 
 def generate_images():
     print(f"--- Generating 20 {MODEL_ID} Images ({STEPS} steps) on {DEVICE} ---")
-    pipe = DiffusionPipeline.from_pretrained(MODEL_ID, torch_dtype=DTYPE).to(DEVICE)
+    
+    if not IS_H200 and DEVICE == "cuda":
+        from diffusers import BitsAndBytesConfig
+        quantization_config = BitsAndBytesConfig(load_in_4bit=True)
+        pipe = DiffusionPipeline.from_pretrained(
+            MODEL_ID, 
+            quantization_config=quantization_config, 
+            torch_dtype=torch.bfloat16
+        ).to(DEVICE)
+    else:
+        pipe = DiffusionPipeline.from_pretrained(MODEL_ID, torch_dtype=DTYPE).to(DEVICE)
 
     os.makedirs(f"{ASSETS_DIR}/images", exist_ok=True)
     
