@@ -1,3 +1,23 @@
+import torch
+import os
+import numpy as np
+import scipy.io.wavfile as wavfile
+import utils
+import gc
+from diffusers import DiffusionPipeline, StableAudioPipeline
+from transformers import BitsAndBytesConfig
+
+def generate_images(args):
+    pass  # TODO: Adapt from metro for chimp prompts
+
+def generate_sfx(args):
+    pass  # TODO: Adapt from metro for chimp SFX
+
+def generate_voiceover(args):
+    pass  # TODO: Adapt from metro for chimp voiceover
+
+def generate_music(args):
+    pass  # TODO: Adapt from metro for chimp music
 
 # Rewritten to use vidlib
 from vidlib import assets
