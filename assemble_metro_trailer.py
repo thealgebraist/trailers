@@ -1,8 +1,11 @@
 import subprocess
 import os
 import sys
+import wave
+import contextlib
+import argparse
 
-# Scene definitions must match the generator
+# Scene definitions
 SCENES = [
     "01_entrance",
     "02_face_scan",
@@ -38,114 +41,177 @@ SCENES = [
     "32_title_card",
 ]
 
+# Mapping Scene Index -> [VO indices]
+# Total VOs: 0-35
+SCENE_VO_MAP = {
+    0: [0, 1, 2],  # Entrance: Welcome...
+    1: [3],  # Face scan
+    2: [4],
+    3: [5],
+    4: [6],
+    5: [7],
+    6: [8],
+    7: [9],
+    8: [10],
+    9: [11],
+    10: [12],
+    11: [13],
+    12: [14],
+    13: [15],
+    14: [16],
+    15: [17],
+    16: [18],
+    17: [19],
+    18: [20],
+    19: [21],
+    20: [22],
+    21: [23],
+    22: [24],
+    23: [25],
+    24: [26],
+    25: [27],
+    26: [28],
+    27: [29],
+    28: [30],  # Platform edge
+    29: [31],  # Empty carriage
+    30: [32],  # Train interior
+    31: [33, 34, 35],  # Title card
+}
+
+
+def get_wav_duration(path):
+    if not os.path.exists(path):
+        return 0.0
+    try:
+        with contextlib.closing(wave.open(path, "r")) as f:
+            frames = f.getnframes()
+            rate = f.getframerate()
+            return frames / float(rate)
+    except Exception as e:
+        print(f"Error reading {path}: {e}")
+        return 0.0
+
 
 def assemble_metro(assets_dir, output_file):
-    print(f"--- Assembling Metro Trailer ---")
-
-    # Total duration 240s. 32 Scenes.
-    # 240 / 32 = 7.5 seconds per scene.
-    scene_duration = 7.5
+    print(f"--- Assembling Metro Trailer (Dynamic Sync) ---")
 
     cmd = ["ffmpeg", "-y"]
+    input_idx = 0
+    filter_complex = ""
 
-    # --- 1. Inputs ---
+    scene_v_labels = []
+    scene_a_labels = []
 
-    # Video Inputs (Images) [0:v] to [31:v]
-    # Video Inputs (Images) [0:v] to [31:v]
-    for s_id in SCENES:
+    # Map inputs and build per-scene filters
+    for i, s_id in enumerate(SCENES):
+        # 1. Determine Duration
+        vo_indices = SCENE_VO_MAP.get(i, [])
+        vo_files = [f"{assets_dir}/voice/vo_{vi:03d}.wav" for vi in vo_indices]
+
+        total_vo_dur = sum(get_wav_duration(f) for f in vo_files)
+        # Min duration for visual pacing
+        duration = max(total_vo_dur + 0.5, 4.0)
+
+        # 2. Add Inputs
+
+        # Image Input (Single Frame for zoompan)
         img_path = f"{assets_dir}/images/{s_id}.png"
-        if os.path.exists(img_path):
-            # Loop image for duration
-            cmd += ["-loop", "1", "-t", str(scene_duration), "-i", img_path]
+        has_img = os.path.exists(img_path)
+        if has_img:
+            cmd += ["-i", img_path]
         else:
-            print(f"Warning: Missing image {img_path}, using placeholder.")
-            # Black placeholder
-            cmd += [
-                "-f",
-                "lavfi",
-                "-t",
-                str(scene_duration),
-                "-i",
-                "color=c=black:s=1280x720:r=24",
-            ]
+            print(f"Warning: Missing image {img_path}, using placeholder")
+            # Single frame black placeholder
+            cmd += ["-f", "lavfi", "-i", "color=c=black:s=1280x720:d=0.04"]
+        img_idx = input_idx
+        input_idx += 1
 
-    # SFX Inputs [32:a] to [63:a]
-    for s_id in SCENES:
+        # SFX Input
         sfx_path = f"{assets_dir}/sfx/{s_id}.wav"
-        if os.path.exists(sfx_path):
-            cmd += ["-stream_loop", "-1", "-t", str(scene_duration), "-i", sfx_path]
+        has_sfx = os.path.exists(sfx_path)
+        if has_sfx:
+            cmd += ["-stream_loop", "-1", "-t", str(duration), "-i", sfx_path]
         else:
-            print(f"Warning: Missing SFX {sfx_path}, using placeholder.")
             cmd += [
                 "-f",
                 "lavfi",
                 "-t",
-                str(scene_duration),
+                str(duration),
                 "-i",
                 "anullsrc=r=44100:cl=stereo",
             ]
+        sfx_idx = input_idx
+        input_idx += 1
 
-    # Voiceover [64:a]
-    vo_path = f"{assets_dir}/voice/voiceover_full.wav"
-    if not os.path.exists(vo_path):
-        print(f"Warning: Missing VO {vo_path}, using placeholder.")
-        # Create silent dummy input if main VO is missing (critical failure usually, but let's be robust)
-        cmd += ["-f", "lavfi", "-t", "240", "-i", "anullsrc=r=44100:cl=stereo"]
-    else:
-        cmd += ["-i", vo_path]
+        # VO Inputs
+        current_vo_indices = []
+        for vp in vo_files:
+            if os.path.exists(vp):
+                cmd += ["-i", vp]
+                current_vo_indices.append(input_idx)
+                input_idx += 1
+            else:
+                print(f"Warning: Missing VO {vp}")
 
-    # Music [65:a]
+        # 3. Filter Graph Construction
+
+        # Video: Zoom slower, scale
+        # Use d=duration*25 frames. Input is single frame.
+        filter_complex += f"[{img_idx}:v]scale=4000:-1,zoompan=z='min(zoom+0.0005,1.5)':d={int(duration * 25)}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1280x720,setsar=1[v{i}];"
+        scene_v_labels.append(f"[v{i}]")
+
+        # Audio
+        if current_vo_indices:
+            # Concat VOs
+            vo_inputs = "".join([f"[{idx}:a]" for idx in current_vo_indices])
+            filter_complex += (
+                f"{vo_inputs}concat=n={len(current_vo_indices)}:v=0:a=1[vo_raw_{i}];"
+            )
+            # Ensure stereo using aformat
+            filter_complex += (
+                f"[vo_raw_{i}]aformat=channel_layouts=stereo[vo_stereo_{i}];"
+            )
+
+            # Mix with SFX
+            filter_complex += f"[{sfx_idx}:a]volume=0.3[sfx_vol_{i}];"
+            filter_complex += f"[sfx_vol_{i}][vo_stereo_{i}]amix=inputs=2:duration=first:dropout_transition=0[a_scene_{i}];"
+        else:
+            # Just SFX
+            filter_complex += f"[{sfx_idx}:a]volume=0.3[a_scene_{i}];"
+
+        scene_a_labels.append(f"[a_scene_{i}]")
+
+    # 4. Global Concat
+    # Interleave [v0][a0][v1][a1]...
+    concat_inputs = ""
+    for v_lab, a_lab in zip(scene_v_labels, scene_a_labels):
+        concat_inputs += f"{v_lab}{a_lab}"
+    n_scenes = len(SCENES)
+
+    filter_complex += f"{concat_inputs}concat=n={n_scenes}:v=1:a=1[main_v][main_a_raw];"
+
+    # 5. Add Music
     music_path = f"{assets_dir}/music/metro_theme.wav"
-    if not os.path.exists(music_path):
-        print(f"Warning: Missing music {music_path}, using placeholder.")
-        cmd += ["-f", "lavfi", "-t", "240", "-i", "anullsrc=r=44100:cl=stereo"]
+    if os.path.exists(music_path):
+        cmd += ["-stream_loop", "-1", "-i", music_path]  # Loop music
+        music_idx = input_idx
+        input_idx += 1
+
+        # Mix Music with Main Audio
+        filter_complex += f"[{music_idx}:a]volume=0.4[music_vol];"
+        # We want the music to continue for the duration of main_a_raw
+        filter_complex += f"[main_a_raw][music_vol]amix=inputs=2:duration=first:dropout_transition=0,volume=1.5[main_a];"
     else:
-        cmd += ["-i", music_path]
+        print("Warning: Missing music track")
+        filter_complex += f"[main_a_raw]volume=1.0[main_a];"
 
-    # --- 2. Filter Complex ---
-
-    filter_complex = ""
-
-    # Visuals: Scale, Zoom effect
-    for i in range(len(SCENES)):
-        filter_complex += f"[{i}:v]scale=8000:-1,zoompan=z='min(zoom+0.001,1.5)':d={int(scene_duration * 25)}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1280x720[v{i}];"
-
-    # Concat visuals
-    v_concat = "".join([f"[v{i}]" for i in range(len(SCENES))])
-    filter_complex += f"{v_concat}concat=n={len(SCENES)}:v=1:a=0[vout];"
-
-    # Audio Mixing
-    sfx_mixed_outputs = ""
-    for i in range(len(SCENES)):
-        input_idx = len(SCENES) + i
-        delay_ms = int(i * scene_duration * 1000)
-        filter_complex += f"[{input_idx}:a]adelay={delay_ms}|{delay_ms}[sfx{i}];"
-        sfx_mixed_outputs += f"[sfx{i}]"
-
-    # Mix all SFX into one track
-    filter_complex += (
-        f"{sfx_mixed_outputs}amix=inputs={len(SCENES)}:dropout_transition=0[sfx_all];"
-    )
-
-    # Final Mix: SFX + VO + Music
-    vo_idx = len(SCENES) * 2
-    music_idx = vo_idx + 1
-
-    # Volume adjustments
-    filter_complex += f"[sfx_all]volume=0.3[sfx_final];"
-    filter_complex += f"[{vo_idx}:a]volume=1.5[vo_final];"
-    filter_complex += f"[{music_idx}:a]volume=0.5[music_final];"
-
-    filter_complex += f"[sfx_final][vo_final][music_final]amix=inputs=3:duration=first:dropout_transition=0[aout]"
-
+    # Map Output
     cmd += ["-filter_complex", filter_complex]
-    cmd += ["-map", "[vout]", "-map", "[aout]"]
+    cmd += ["-map", "[main_v]", "-map", "[main_a]"]
 
-    # Output settings
-
-    # Output settings
+    # Encoding Options
     if output_file.endswith(".mpg") or output_file.endswith(".mpeg"):
-        # MPEG2 Encoding
+        # MPEG2
         print("Using MPEG2 Encoding...")
         cmd += [
             "-c:v",
@@ -153,19 +219,16 @@ def assemble_metro(assets_dir, output_file):
             "-pix_fmt",
             "yuv420p",
             "-q:v",
-            "4",  # "90%" ish quality (scale 1-31)
+            "4",
             "-c:a",
             "mp2",
             "-b:a",
             "160k",
             "-ar",
             "48000",
-            "-t",
-            "240",
-            output_file,
         ]
     else:
-        # Standard H.264
+        # H.264
         cmd += [
             "-c:v",
             "libx264",
@@ -177,13 +240,12 @@ def assemble_metro(assets_dir, output_file):
             "aac",
             "-b:a",
             "320k",
-            "-t",
-            "240",  # Hard limit 240s
-            output_file,
         ]
 
+    cmd += [output_file]
+
     print("--- Executing FFMPEG Assembly ---")
-    # print(f"Command: {' '.join(cmd)}")
+
     with open("ffmpeg_log.txt", "w") as f:
         try:
             subprocess.run(cmd, check=True, stderr=f, stdout=f)
@@ -194,8 +256,6 @@ def assemble_metro(assets_dir, output_file):
 
 
 if __name__ == "__main__":
-    import argparse
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--assets", type=str, default="assets_metro", help="Path to assets directory"

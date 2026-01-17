@@ -1,0 +1,524 @@
+ffmpeg version 8.0.1 Copyright (c) 2000-2025 the FFmpeg developers
+  built with Apple clang version 17.0.0 (clang-1700.6.3.2)
+  configuration: --prefix=/opt/homebrew/Cellar/ffmpeg/8.0.1 --enable-shared --cc=clang --host-cflags= --host-ldflags= --enable-gpl --enable-libaom --enable-libdav1d --enable-libharfbuzz --enable-libmp3lame --enable-libopus --enable-libsnappy --enable-libtheora --enable-libvorbis --enable-libvpx --enable-libx264 --enable-libx265 --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-demuxer=dash --enable-neon --enable-opencl --enable-audiotoolbox --enable-videotoolbox --disable-htmlpages --enable-libcaca
+  libavutil      60.  8.100 / 60.  8.100
+  libavcodec     62. 11.100 / 62. 11.100
+  libavformat    62.  3.100 / 62.  3.100
+  libavdevice    62.  1.100 / 62.  1.100
+  libavfilter    11.  4.100 / 11.  4.100
+  libswscale      9.  1.100 /  9.  1.100
+  libswresample   6.  1.100 /  6.  1.100
+Input #0, png_pipe, from '/Users/anders/projects/metro/images/01_entrance.png':
+  Duration: N/A, bitrate: N/A
+  Stream #0:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#1:0/pcm_s16le @ 0x7930b1c80] Guessed Channel Layout: stereo
+Input #1, wav, from '/Users/anders/projects/metro/sfx/01_entrance.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #1:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#2:0/pcm_s16le @ 0x7930b1e00] Guessed Channel Layout: mono
+Input #2, wav, from '/Users/anders/projects/metro/voice/vo_000.wav':
+  Duration: 00:00:02.07, bitrate: 384 kb/s
+  Stream #2:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+[aist#3:0/pcm_s16le @ 0x7930b1f80] Guessed Channel Layout: mono
+Input #3, wav, from '/Users/anders/projects/metro/voice/vo_001.wav':
+  Duration: 00:00:03.17, bitrate: 384 kb/s
+  Stream #3:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+[aist#4:0/pcm_s16le @ 0x7930b2100] Guessed Channel Layout: mono
+Input #4, wav, from '/Users/anders/projects/metro/voice/vo_002.wav':
+  Duration: 00:00:05.06, bitrate: 384 kb/s
+  Stream #4:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #5, png_pipe, from '/Users/anders/projects/metro/images/02_face_scan.png':
+  Duration: N/A, bitrate: N/A
+  Stream #5:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#6:0/pcm_s16le @ 0x7930b2400] Guessed Channel Layout: stereo
+Input #6, wav, from '/Users/anders/projects/metro/sfx/02_face_scan.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #6:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#7:0/pcm_s16le @ 0x7930b2580] Guessed Channel Layout: mono
+Input #7, wav, from '/Users/anders/projects/metro/voice/vo_003.wav':
+  Duration: 00:00:06.05, bitrate: 384 kb/s
+  Stream #7:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #8, png_pipe, from '/Users/anders/projects/metro/images/03_finger_scan.png':
+  Duration: N/A, bitrate: N/A
+  Stream #8:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#9:0/pcm_s16le @ 0x7930b2880] Guessed Channel Layout: stereo
+Input #9, wav, from '/Users/anders/projects/metro/sfx/03_finger_scan.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #9:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#10:0/pcm_s16le @ 0x7930b2a00] Guessed Channel Layout: mono
+Input #10, wav, from '/Users/anders/projects/metro/voice/vo_004.wav':
+  Duration: 00:00:04.76, bitrate: 384 kb/s
+  Stream #10:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #11, png_pipe, from '/Users/anders/projects/metro/images/04_smell_detector.png':
+  Duration: N/A, bitrate: N/A
+  Stream #11:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#12:0/pcm_s16le @ 0x7930b2d00] Guessed Channel Layout: stereo
+Input #12, wav, from '/Users/anders/projects/metro/sfx/04_smell_detector.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #12:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#13:0/pcm_s16le @ 0x7930b2e80] Guessed Channel Layout: mono
+Input #13, wav, from '/Users/anders/projects/metro/voice/vo_005.wav':
+  Duration: 00:00:06.05, bitrate: 384 kb/s
+  Stream #13:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #14, png_pipe, from '/Users/anders/projects/metro/images/05_torso_slime.png':
+  Duration: N/A, bitrate: N/A
+  Stream #14:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#15:0/pcm_s16le @ 0x7930b3180] Guessed Channel Layout: stereo
+Input #15, wav, from '/Users/anders/projects/metro/sfx/05_torso_slime.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #15:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#16:0/pcm_s16le @ 0x7930b3300] Guessed Channel Layout: mono
+Input #16, wav, from '/Users/anders/projects/metro/voice/vo_006.wav':
+  Duration: 00:00:04.36, bitrate: 384 kb/s
+  Stream #16:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #17, png_pipe, from '/Users/anders/projects/metro/images/06_tongue_print.png':
+  Duration: N/A, bitrate: N/A
+  Stream #17:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#18:0/pcm_s16le @ 0x7930b3600] Guessed Channel Layout: stereo
+Input #18, wav, from '/Users/anders/projects/metro/sfx/06_tongue_print.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #18:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#19:0/pcm_s16le @ 0x7930b3780] Guessed Channel Layout: mono
+Input #19, wav, from '/Users/anders/projects/metro/voice/vo_007.wav':
+  Duration: 00:00:06.94, bitrate: 384 kb/s
+  Stream #19:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #20, png_pipe, from '/Users/anders/projects/metro/images/07_retina_drill.png':
+  Duration: N/A, bitrate: N/A
+  Stream #20:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#21:0/pcm_s16le @ 0x7930b3a80] Guessed Channel Layout: stereo
+Input #21, wav, from '/Users/anders/projects/metro/sfx/07_retina_drill.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #21:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#22:0/pcm_s16le @ 0x7930b3c00] Guessed Channel Layout: mono
+Input #22, wav, from '/Users/anders/projects/metro/voice/vo_008.wav':
+  Duration: 00:00:05.16, bitrate: 384 kb/s
+  Stream #22:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #23, png_pipe, from '/Users/anders/projects/metro/images/08_ear_wax_sampler.png':
+  Duration: N/A, bitrate: N/A
+  Stream #23:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#24:0/pcm_s16le @ 0x793c60000] Guessed Channel Layout: stereo
+Input #24, wav, from '/Users/anders/projects/metro/sfx/08_ear_wax_sampler.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #24:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#25:0/pcm_s16le @ 0x793c60180] Guessed Channel Layout: mono
+Input #25, wav, from '/Users/anders/projects/metro/voice/vo_009.wav':
+  Duration: 00:00:07.45, bitrate: 384 kb/s
+  Stream #25:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #26, png_pipe, from '/Users/anders/projects/metro/images/09_hair_count.png':
+  Duration: N/A, bitrate: N/A
+  Stream #26:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#27:0/pcm_s16le @ 0x793c60480] Guessed Channel Layout: stereo
+Input #27, wav, from '/Users/anders/projects/metro/sfx/09_hair_count.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #27:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#28:0/pcm_s16le @ 0x793c60600] Guessed Channel Layout: mono
+Input #28, wav, from '/Users/anders/projects/metro/voice/vo_010.wav':
+  Duration: 00:00:05.86, bitrate: 384 kb/s
+  Stream #28:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #29, png_pipe, from '/Users/anders/projects/metro/images/10_sweat_analysis.png':
+  Duration: N/A, bitrate: N/A
+  Stream #29:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#30:0/pcm_s16le @ 0x793c60900] Guessed Channel Layout: stereo
+Input #30, wav, from '/Users/anders/projects/metro/sfx/10_sweat_analysis.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #30:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#31:0/pcm_s16le @ 0x793c60a80] Guessed Channel Layout: mono
+Input #31, wav, from '/Users/anders/projects/metro/voice/vo_011.wav':
+  Duration: 00:00:06.25, bitrate: 384 kb/s
+  Stream #31:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #32, png_pipe, from '/Users/anders/projects/metro/images/11_bone_crusher.png':
+  Duration: N/A, bitrate: N/A
+  Stream #32:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#33:0/pcm_s16le @ 0x793c60d80] Guessed Channel Layout: stereo
+Input #33, wav, from '/Users/anders/projects/metro/sfx/11_bone_crusher.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #33:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#34:0/pcm_s16le @ 0x793c60f00] Guessed Channel Layout: mono
+Input #34, wav, from '/Users/anders/projects/metro/voice/vo_012.wav':
+  Duration: 00:00:07.45, bitrate: 384 kb/s
+  Stream #34:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #35, png_pipe, from '/Users/anders/projects/metro/images/12_spirit_photo.png':
+  Duration: N/A, bitrate: N/A
+  Stream #35:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#36:0/pcm_s16le @ 0x793c61200] Guessed Channel Layout: stereo
+Input #36, wav, from '/Users/anders/projects/metro/sfx/12_spirit_photo.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #36:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#37:0/pcm_s16le @ 0x793c61380] Guessed Channel Layout: mono
+Input #37, wav, from '/Users/anders/projects/metro/voice/vo_013.wav':
+  Duration: 00:00:05.65, bitrate: 384 kb/s
+  Stream #37:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #38, png_pipe, from '/Users/anders/projects/metro/images/13_karma_scale.png':
+  Duration: N/A, bitrate: N/A
+  Stream #38:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#39:0/pcm_s16le @ 0x793c61680] Guessed Channel Layout: stereo
+Input #39, wav, from '/Users/anders/projects/metro/sfx/13_karma_scale.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #39:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#40:0/pcm_s16le @ 0x793c61800] Guessed Channel Layout: mono
+Input #40, wav, from '/Users/anders/projects/metro/voice/vo_014.wav':
+  Duration: 00:00:05.56, bitrate: 384 kb/s
+  Stream #40:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #41, png_pipe, from '/Users/anders/projects/metro/images/14_dream_extract.png':
+  Duration: N/A, bitrate: N/A
+  Stream #41:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#42:0/pcm_s16le @ 0x793c61b00] Guessed Channel Layout: stereo
+Input #42, wav, from '/Users/anders/projects/metro/sfx/14_dream_extract.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #42:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#43:0/pcm_s16le @ 0x793c61c80] Guessed Channel Layout: mono
+Input #43, wav, from '/Users/anders/projects/metro/voice/vo_015.wav':
+  Duration: 00:00:06.05, bitrate: 384 kb/s
+  Stream #43:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #44, png_pipe, from '/Users/anders/projects/metro/images/15_memory_wipe.png':
+  Duration: N/A, bitrate: N/A
+  Stream #44:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#45:0/pcm_s16le @ 0x793c61f80] Guessed Channel Layout: stereo
+Input #45, wav, from '/Users/anders/projects/metro/sfx/15_memory_wipe.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #45:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#46:0/pcm_s16le @ 0x793c62100] Guessed Channel Layout: mono
+Input #46, wav, from '/Users/anders/projects/metro/voice/vo_016.wav':
+  Duration: 00:00:05.26, bitrate: 384 kb/s
+  Stream #46:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #47, png_pipe, from '/Users/anders/projects/metro/images/16_genetic_sieve.png':
+  Duration: N/A, bitrate: N/A
+  Stream #47:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#48:0/pcm_s16le @ 0x793c62400] Guessed Channel Layout: stereo
+Input #48, wav, from '/Users/anders/projects/metro/sfx/16_genetic_sieve.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #48:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#49:0/pcm_s16le @ 0x793c62580] Guessed Channel Layout: mono
+Input #49, wav, from '/Users/anders/projects/metro/voice/vo_017.wav':
+  Duration: 00:00:05.06, bitrate: 384 kb/s
+  Stream #49:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #50, png_pipe, from '/Users/anders/projects/metro/images/17_final_stamp.png':
+  Duration: N/A, bitrate: N/A
+  Stream #50:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#51:0/pcm_s16le @ 0x793c62880] Guessed Channel Layout: stereo
+Input #51, wav, from '/Users/anders/projects/metro/sfx/17_final_stamp.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #51:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#52:0/pcm_s16le @ 0x793c62a00] Guessed Channel Layout: mono
+Input #52, wav, from '/Users/anders/projects/metro/voice/vo_018.wav':
+  Duration: 00:00:02.18, bitrate: 384 kb/s
+  Stream #52:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #53, png_pipe, from '/Users/anders/projects/metro/images/18_nail_pull.png':
+  Duration: N/A, bitrate: N/A
+  Stream #53:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#54:0/pcm_s16le @ 0x793c62d00] Guessed Channel Layout: stereo
+Input #54, wav, from '/Users/anders/projects/metro/sfx/18_nail_pull.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #54:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#55:0/pcm_s16le @ 0x793c62e80] Guessed Channel Layout: mono
+Input #55, wav, from '/Users/anders/projects/metro/voice/vo_019.wav':
+  Duration: 00:00:04.27, bitrate: 384 kb/s
+  Stream #55:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #56, png_pipe, from '/Users/anders/projects/metro/images/19_skin_swatch.png':
+  Duration: N/A, bitrate: N/A
+  Stream #56:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#57:0/pcm_s16le @ 0x793c63180] Guessed Channel Layout: stereo
+Input #57, wav, from '/Users/anders/projects/metro/sfx/19_skin_swatch.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #57:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#58:0/pcm_s16le @ 0x793c63300] Guessed Channel Layout: mono
+Input #58, wav, from '/Users/anders/projects/metro/voice/vo_020.wav':
+  Duration: 00:00:02.57, bitrate: 384 kb/s
+  Stream #58:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #59, png_pipe, from '/Users/anders/projects/metro/images/20_tooth_scan.png':
+  Duration: N/A, bitrate: N/A
+  Stream #59:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#60:0/pcm_s16le @ 0x793c63600] Guessed Channel Layout: stereo
+Input #60, wav, from '/Users/anders/projects/metro/sfx/20_tooth_scan.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #60:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#61:0/pcm_s16le @ 0x793c63780] Guessed Channel Layout: mono
+Input #61, wav, from '/Users/anders/projects/metro/voice/vo_021.wav':
+  Duration: 00:00:03.37, bitrate: 384 kb/s
+  Stream #61:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #62, png_pipe, from '/Users/anders/projects/metro/images/21_pulse_monitor.png':
+  Duration: N/A, bitrate: N/A
+  Stream #62:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#63:0/pcm_s16le @ 0x793c63a80] Guessed Channel Layout: stereo
+Input #63, wav, from '/Users/anders/projects/metro/sfx/21_pulse_monitor.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #63:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#64:0/pcm_s16le @ 0x793c63c00] Guessed Channel Layout: mono
+Input #64, wav, from '/Users/anders/projects/metro/voice/vo_022.wav':
+  Duration: 00:00:05.95, bitrate: 384 kb/s
+  Stream #64:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #65, png_pipe, from '/Users/anders/projects/metro/images/22_tear_collector.png':
+  Duration: N/A, bitrate: N/A
+  Stream #65:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#66:0/pcm_s16le @ 0x794be4000] Guessed Channel Layout: stereo
+Input #66, wav, from '/Users/anders/projects/metro/sfx/22_tear_collector.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #66:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#67:0/pcm_s16le @ 0x794be4180] Guessed Channel Layout: mono
+Input #67, wav, from '/Users/anders/projects/metro/voice/vo_023.wav':
+  Duration: 00:00:05.86, bitrate: 384 kb/s
+  Stream #67:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #68, png_pipe, from '/Users/anders/projects/metro/images/23_brain_map.png':
+  Duration: N/A, bitrate: N/A
+  Stream #68:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#69:0/pcm_s16le @ 0x794be4480] Guessed Channel Layout: stereo
+Input #69, wav, from '/Users/anders/projects/metro/sfx/23_brain_map.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #69:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#70:0/pcm_s16le @ 0x794be4600] Guessed Channel Layout: mono
+Input #70, wav, from '/Users/anders/projects/metro/voice/vo_024.wav':
+  Duration: 00:00:05.16, bitrate: 384 kb/s
+  Stream #70:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #71, png_pipe, from '/Users/anders/projects/metro/images/24_shadow_audit.png':
+  Duration: N/A, bitrate: N/A
+  Stream #71:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#72:0/pcm_s16le @ 0x794be4900] Guessed Channel Layout: stereo
+Input #72, wav, from '/Users/anders/projects/metro/sfx/24_shadow_audit.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #72:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#73:0/pcm_s16le @ 0x794be4a80] Guessed Channel Layout: mono
+Input #73, wav, from '/Users/anders/projects/metro/voice/vo_025.wav':
+  Duration: 00:00:05.45, bitrate: 384 kb/s
+  Stream #73:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #74, png_pipe, from '/Users/anders/projects/metro/images/25_breath_tax.png':
+  Duration: N/A, bitrate: N/A
+  Stream #74:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#75:0/pcm_s16le @ 0x794be4d80] Guessed Channel Layout: stereo
+Input #75, wav, from '/Users/anders/projects/metro/sfx/25_breath_tax.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #75:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#76:0/pcm_s16le @ 0x794be4f00] Guessed Channel Layout: mono
+Input #76, wav, from '/Users/anders/projects/metro/voice/vo_026.wav':
+  Duration: 00:00:04.16, bitrate: 384 kb/s
+  Stream #76:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #77, png_pipe, from '/Users/anders/projects/metro/images/26_thought_police.png':
+  Duration: N/A, bitrate: N/A
+  Stream #77:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#78:0/pcm_s16le @ 0x794be5200] Guessed Channel Layout: stereo
+Input #78, wav, from '/Users/anders/projects/metro/sfx/26_thought_police.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #78:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#79:0/pcm_s16le @ 0x794be5380] Guessed Channel Layout: mono
+Input #79, wav, from '/Users/anders/projects/metro/voice/vo_027.wav':
+  Duration: 00:00:04.66, bitrate: 384 kb/s
+  Stream #79:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #80, png_pipe, from '/Users/anders/projects/metro/images/27_loyalty_check.png':
+  Duration: N/A, bitrate: N/A
+  Stream #80:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#81:0/pcm_s16le @ 0x794be5680] Guessed Channel Layout: stereo
+Input #81, wav, from '/Users/anders/projects/metro/sfx/27_loyalty_check.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #81:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#82:0/pcm_s16le @ 0x794be5800] Guessed Channel Layout: mono
+Input #82, wav, from '/Users/anders/projects/metro/voice/vo_028.wav':
+  Duration: 00:00:05.75, bitrate: 384 kb/s
+  Stream #82:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #83, png_pipe, from '/Users/anders/projects/metro/images/28_identity_shredder.png':
+  Duration: N/A, bitrate: N/A
+  Stream #83:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#84:0/pcm_s16le @ 0x794be5b00] Guessed Channel Layout: stereo
+Input #84, wav, from '/Users/anders/projects/metro/sfx/28_identity_shredder.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #84:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#85:0/pcm_s16le @ 0x794be5c80] Guessed Channel Layout: mono
+Input #85, wav, from '/Users/anders/projects/metro/voice/vo_029.wav':
+  Duration: 00:00:03.77, bitrate: 384 kb/s
+  Stream #85:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #86, png_pipe, from '/Users/anders/projects/metro/images/29_platform_edge.png':
+  Duration: N/A, bitrate: N/A
+  Stream #86:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#87:0/pcm_s16le @ 0x794be5f80] Guessed Channel Layout: stereo
+Input #87, wav, from '/Users/anders/projects/metro/sfx/29_platform_edge.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #87:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#88:0/pcm_s16le @ 0x794be6100] Guessed Channel Layout: mono
+Input #88, wav, from '/Users/anders/projects/metro/voice/vo_030.wav':
+  Duration: 00:00:06.35, bitrate: 384 kb/s
+  Stream #88:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #89, png_pipe, from '/Users/anders/projects/metro/images/30_empty_carriage.png':
+  Duration: N/A, bitrate: N/A
+  Stream #89:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#90:0/pcm_s16le @ 0x794be6400] Guessed Channel Layout: stereo
+Input #90, wav, from '/Users/anders/projects/metro/sfx/30_empty_carriage.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #90:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#91:0/pcm_s16le @ 0x794be6580] Guessed Channel Layout: mono
+Input #91, wav, from '/Users/anders/projects/metro/voice/vo_031.wav':
+  Duration: 00:00:03.67, bitrate: 384 kb/s
+  Stream #91:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #92, png_pipe, from '/Users/anders/projects/metro/images/31_train_interior.png':
+  Duration: N/A, bitrate: N/A
+  Stream #92:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#93:0/pcm_s16le @ 0x794be6880] Guessed Channel Layout: stereo
+Input #93, wav, from '/Users/anders/projects/metro/sfx/31_train_interior.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #93:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#94:0/pcm_s16le @ 0x794be6a00] Guessed Channel Layout: mono
+Input #94, wav, from '/Users/anders/projects/metro/voice/vo_032.wav':
+  Duration: 00:00:01.67, bitrate: 384 kb/s
+  Stream #94:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+Input #95, png_pipe, from '/Users/anders/projects/metro/images/32_title_card.png':
+  Duration: N/A, bitrate: N/A
+  Stream #95:0: Video: png, rgb24(pc, gbr/unknown/unknown), 1280x720, 25 fps, 25 tbr, 25 tbn
+[aist#96:0/pcm_s16le @ 0x794be6d00] Guessed Channel Layout: stereo
+Input #96, wav, from '/Users/anders/projects/metro/sfx/32_title_card.wav':
+  Duration: 00:00:12.00, bitrate: 1411 kb/s
+  Stream #96:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[aist#97:0/pcm_s16le @ 0x794be6e80] Guessed Channel Layout: mono
+Input #97, wav, from '/Users/anders/projects/metro/voice/vo_033.wav':
+  Duration: 00:00:01.77, bitrate: 384 kb/s
+  Stream #97:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+[aist#98:0/pcm_s16le @ 0x794be7000] Guessed Channel Layout: mono
+Input #98, wav, from '/Users/anders/projects/metro/voice/vo_034.wav':
+  Duration: 00:00:02.07, bitrate: 384 kb/s
+  Stream #98:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+[aist#99:0/pcm_s16le @ 0x794be7180] Guessed Channel Layout: mono
+Input #99, wav, from '/Users/anders/projects/metro/voice/vo_035.wav':
+  Duration: 00:00:01.64, bitrate: 384 kb/s
+  Stream #99:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 24000 Hz, mono, s16, 384 kb/s
+[aist#100:0/pcm_s16le @ 0x794be7300] Guessed Channel Layout: stereo
+Input #100, wav, from '/Users/anders/projects/metro/music/metro_theme.wav':
+  Duration: 00:00:45.00, bitrate: 1411 kb/s
+  Stream #100:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+Stream mapping:
+  Stream #0:0 (png) -> scale:default
+  Stream #1:0 (pcm_s16le) -> volume:default
+  Stream #2:0 (pcm_s16le) -> concat
+  Stream #3:0 (pcm_s16le) -> concat
+  Stream #4:0 (pcm_s16le) -> concat
+  Stream #5:0 (png) -> scale:default
+  Stream #6:0 (pcm_s16le) -> volume:default
+  Stream #7:0 (pcm_s16le) -> concat:in0:a0
+  Stream #8:0 (png) -> scale:default
+  Stream #9:0 (pcm_s16le) -> volume:default
+  Stream #10:0 (pcm_s16le) -> concat:in0:a0
+  Stream #11:0 (png) -> scale:default
+  Stream #12:0 (pcm_s16le) -> volume:default
+  Stream #13:0 (pcm_s16le) -> concat:in0:a0
+  Stream #14:0 (png) -> scale:default
+  Stream #15:0 (pcm_s16le) -> volume:default
+  Stream #16:0 (pcm_s16le) -> concat:in0:a0
+  Stream #17:0 (png) -> scale:default
+  Stream #18:0 (pcm_s16le) -> volume:default
+  Stream #19:0 (pcm_s16le) -> concat:in0:a0
+  Stream #20:0 (png) -> scale:default
+  Stream #21:0 (pcm_s16le) -> volume:default
+  Stream #22:0 (pcm_s16le) -> concat:in0:a0
+  Stream #23:0 (png) -> scale:default
+  Stream #24:0 (pcm_s16le) -> volume:default
+  Stream #25:0 (pcm_s16le) -> concat:in0:a0
+  Stream #26:0 (png) -> scale:default
+  Stream #27:0 (pcm_s16le) -> volume:default
+  Stream #28:0 (pcm_s16le) -> concat:in0:a0
+  Stream #29:0 (png) -> scale:default
+  Stream #30:0 (pcm_s16le) -> volume:default
+  Stream #31:0 (pcm_s16le) -> concat:in0:a0
+  Stream #32:0 (png) -> scale:default
+  Stream #33:0 (pcm_s16le) -> volume:default
+  Stream #34:0 (pcm_s16le) -> concat:in0:a0
+  Stream #35:0 (png) -> scale:default
+  Stream #36:0 (pcm_s16le) -> volume:default
+  Stream #37:0 (pcm_s16le) -> concat:in0:a0
+  Stream #38:0 (png) -> scale:default
+  Stream #39:0 (pcm_s16le) -> volume:default
+  Stream #40:0 (pcm_s16le) -> concat:in0:a0
+  Stream #41:0 (png) -> scale:default
+  Stream #42:0 (pcm_s16le) -> volume:default
+  Stream #43:0 (pcm_s16le) -> concat:in0:a0
+  Stream #44:0 (png) -> scale:default
+  Stream #45:0 (pcm_s16le) -> volume:default
+  Stream #46:0 (pcm_s16le) -> concat:in0:a0
+  Stream #47:0 (png) -> scale:default
+  Stream #48:0 (pcm_s16le) -> volume:default
+  Stream #49:0 (pcm_s16le) -> concat:in0:a0
+  Stream #50:0 (png) -> scale:default
+  Stream #51:0 (pcm_s16le) -> volume:default
+  Stream #52:0 (pcm_s16le) -> concat:in0:a0
+  Stream #53:0 (png) -> scale:default
+  Stream #54:0 (pcm_s16le) -> volume:default
+  Stream #55:0 (pcm_s16le) -> concat:in0:a0
+  Stream #56:0 (png) -> scale:default
+  Stream #57:0 (pcm_s16le) -> volume:default
+  Stream #58:0 (pcm_s16le) -> concat:in0:a0
+  Stream #59:0 (png) -> scale:default
+  Stream #60:0 (pcm_s16le) -> volume:default
+  Stream #61:0 (pcm_s16le) -> concat:in0:a0
+  Stream #62:0 (png) -> scale:default
+  Stream #63:0 (pcm_s16le) -> volume:default
+  Stream #64:0 (pcm_s16le) -> concat:in0:a0
+  Stream #65:0 (png) -> scale:default
+  Stream #66:0 (pcm_s16le) -> volume:default
+  Stream #67:0 (pcm_s16le) -> concat:in0:a0
+  Stream #68:0 (png) -> scale:default
+  Stream #69:0 (pcm_s16le) -> volume:default
+  Stream #70:0 (pcm_s16le) -> concat:in0:a0
+  Stream #71:0 (png) -> scale:default
+  Stream #72:0 (pcm_s16le) -> volume:default
+  Stream #73:0 (pcm_s16le) -> concat:in0:a0
+  Stream #74:0 (png) -> scale:default
+  Stream #75:0 (pcm_s16le) -> volume:default
+  Stream #76:0 (pcm_s16le) -> concat:in0:a0
+  Stream #77:0 (png) -> scale:default
+  Stream #78:0 (pcm_s16le) -> volume:default
+  Stream #79:0 (pcm_s16le) -> concat:in0:a0
+  Stream #80:0 (png) -> scale:default
+  Stream #81:0 (pcm_s16le) -> volume:default
+  Stream #82:0 (pcm_s16le) -> concat:in0:a0
+  Stream #83:0 (png) -> scale:default
+  Stream #84:0 (pcm_s16le) -> volume:default
+  Stream #85:0 (pcm_s16le) -> concat:in0:a0
+  Stream #86:0 (png) -> scale:default
+  Stream #87:0 (pcm_s16le) -> volume:default
+  Stream #88:0 (pcm_s16le) -> concat:in0:a0
+  Stream #89:0 (png) -> scale:default
+  Stream #90:0 (pcm_s16le) -> volume:default
+  Stream #91:0 (pcm_s16le) -> concat:in0:a0
+  Stream #92:0 (png) -> scale:default
+  Stream #93:0 (pcm_s16le) -> volume:default
+  Stream #94:0 (pcm_s16le) -> concat:in0:a0
+  Stream #95:0 (png) -> scale:default
+  Stream #96:0 (pcm_s16le) -> volume:default
+  Stream #97:0 (pcm_s16le) -> concat
+  Stream #98:0 (pcm_s16le) -> concat
+  Stream #99:0 (pcm_s16le) -> concat
+  Stream #100:0 (pcm_s16le) -> volume:default
+  concat -> Stream #0:0 (libx264)
+  volume:default -> Stream #0:1 (aac)
+Press [q] to stop, [?] for help
+[libx264 @ 0x795f21500] using SAR=1/1
+[libx264 @ 0x795f21500] using cpu capabilities: ARMv8 NEON DotProd I8MM
+[libx264 @ 0x795f21500] profile High, level 3.1, 4:2:0, 8-bit
+[libx264 @ 0x795f21500] 264 - core 165 r3222 b35605a - H.264/MPEG-4 AVC codec - Copyleft 2003-2025 - http://www.videolan.org/x264.html - options: cabac=1 ref=3 deblock=1:0:0 analyse=0x3:0x113 me=hex subme=7 psy=1 psy_rd=1.00:0.00 mixed_ref=1 me_range=16 chroma_me=1 trellis=1 8x8dct=1 cqm=0 deadzone=21,11 fast_pskip=1 chroma_qp_offset=-2 threads=12 lookahead_threads=2 sliced_threads=0 nr=0 decimate=1 interlaced=0 bluray_compat=0 constrained_intra=0 bframes=3 b_pyramid=2 b_adapt=1 b_bias=0 direct=1 weightb=1 open_gop=0 weightp=2 keyint=250 keyint_min=25 scenecut=40 intra_refresh=0 rc_lookahead=40 rc=crf mbtree=1 crf=18.0 qcomp=0.60 qpmin=0 qpmax=69 qpstep=4 ip_ratio=1.40 aq=1:1.00
+[aac @ 0x795f21c00] Too many bits 13653.333333 > 12288 per frame requested, clamping to max
+Output #0, mp4, to 'metro_trailer_90.mp4':
+  Metadata:
+    encoder         : Lavf62.3.100
+  Stream #0:0: Video: h264 (avc1 / 0x31637661), yuv420p(tv, progressive), 1280x720 [SAR 1:1 DAR 16:9], q=2-31, 25 fps, 12800 tbn
+    Metadata:
+      encoder         : Lavc62.11.100 libx264
+    Side data:
+      cpb: bitrate max/min/avg: 0/0/0 buffer size: 0 vbv_delay: N/A
+  Stream #0:1: Audio: aac (LC) (mp4a / 0x6134706D), 24000 Hz, stereo, fltp, 288 kb/s
+    Metadata:
+      encoder         : Lavc62.11.100 aac
+frame=    0 fps=0.0 q=0.0 size=       0KiB time=N/A bitrate=N/A speed=N/A elapsed=0:00:01.00    frame=   41 fps= 27 q=23.0 size=     256KiB time=00:00:01.56 bitrate=1344.6kbits/s speed=1.03x elapsed=0:00:01.50    frame=  106 fps= 53 q=23.0 size=     768KiB time=00:00:04.16 bitrate=1512.5kbits/s speed=2.07x elapsed=0:00:02.00    frame=  166 fps= 66 q=23.0 size=    1280KiB time=00:00:06.56 bitrate=1598.5kbits/s speed=2.61x elapsed=0:00:02.51    frame=  219 fps= 73 q=23.0 size=    1536KiB time=00:00:08.68 bitrate=1449.7kbits/s speed=2.88x elapsed=0:00:03.01    frame=  282 fps= 80 q=23.0 size=    2304KiB time=00:00:11.24 bitrate=1679.2kbits/s speed=3.19x elapsed=0:00:03.51    frame=  351 fps= 87 q=23.0 size=    2816KiB time=00:00:14.00 bitrate=1647.8kbits/s speed=3.48x elapsed=0:00:04.01    frame=  405 fps= 90 q=23.0 size=    3328KiB time=00:00:16.16 bitrate=1687.1kbits/s speed=3.57x elapsed=0:00:04.52    frame=  469 fps= 93 q=23.0 size=    3840KiB time=00:00:18.76 bitrate=1676.8kbits/s speed=3.73x elapsed=0:00:05.02    frame=  537 fps= 97 q=23.0 size=    4096KiB time=00:00:21.48 bitrate=1562.1kbits/s speed=3.88x elapsed=0:00:05.53    frame=  596 fps= 99 q=23.0 size=    4608KiB time=00:00:23.84 bitrate=1583.4kbits/s speed=3.95x elapsed=0:00:06.03    frame=  664 fps=102 q=23.0 size=    5120KiB time=00:00:26.56 bitrate=1579.2kbits/s speed=4.06x elapsed=0:00:06.53    frame=  724 fps=103 q=23.0 size=    5376KiB time=00:00:28.96 bitrate=1520.7kbits/s speed=4.11x elapsed=0:00:07.03    frame=  785 fps=104 q=23.0 size=    5888KiB time=00:00:31.44 bitrate=1534.2kbits/s speed=4.17x elapsed=0:00:07.54    frame=  852 fps=106 q=23.0 size=    6400KiB time=00:00:34.12 bitrate=1536.6kbits/s speed=4.24x elapsed=0:00:08.04    frame=  894 fps=105 q=23.0 size=    6656KiB time=00:00:35.80 bitrate=1523.1kbits/s speed=4.19x elapsed=0:00:08.54    frame=  951 fps=105 q=23.0 size=    6912KiB time=00:00:38.08 bitrate=1487.0kbits/s speed=4.21x elapsed=0:00:09.04    frame= 1005 fps=105 q=23.0 size=    7168KiB time=00:00:40.24 bitrate=1459.3kbits/s speed=4.21x elapsed=0:00:09.54    frame= 1075 fps= 98 q=23.0 size=    7680KiB time=00:00:43.04 bitrate=1461.8kbits/s speed=3.93x elapsed=0:00:10.95    frame= 1143 fps=100 q=23.0 size=    8192KiB time=00:00:45.76 bitrate=1466.5kbits/s speed=3.99x elapsed=0:00:11.46    frame= 1211 fps=101 q=23.0 size=    8704KiB time=00:00:48.52 bitrate=1469.6kbits/s speed=4.06x elapsed=0:00:11.96    frame= 1276 fps=102 q=23.0 size=    8960KiB time=00:00:51.12 bitrate=1435.9kbits/s speed= 4.1x elapsed=0:00:12.46    frame= 1341 fps=103 q=23.0 size=    9216KiB time=00:00:53.72 bitrate=1405.4kbits/s speed=4.14x elapsed=0:00:12.96    frame= 1401 fps=104 q=23.0 size=    9728KiB time=00:00:56.16 bitrate=1419.0kbits/s speed=4.17x elapsed=0:00:13.47    frame= 1457 fps=104 q=23.0 size=    9984KiB time=00:00:58.40 bitrate=1400.5kbits/s speed=4.18x elapsed=0:00:13.97    frame= 1518 fps=105 q=23.0 size=   10240KiB time=00:01:00.84 bitrate=1378.8kbits/s speed= 4.2x elapsed=0:00:14.47    frame= 1566 fps=105 q=23.0 size=   10752KiB time=00:01:02.76 bitrate=1403.5kbits/s speed=4.19x elapsed=0:00:14.97    frame= 1607 fps=104 q=23.0 size=   11008KiB time=00:01:04.40 bitrate=1400.3kbits/s speed=4.16x elapsed=0:00:15.47    frame= 1659 fps=104 q=23.0 size=   11264KiB time=00:01:06.48 bitrate=1388.0kbits/s speed=4.16x elapsed=0:00:15.98    frame= 1721 fps=104 q=23.0 size=   11776KiB time=00:01:09.00 bitrate=1398.1kbits/s speed=4.19x elapsed=0:00:16.48    frame= 1782 fps=105 q=23.0 size=   12032KiB time=00:01:11.44 bitrate=1379.7kbits/s speed=4.21x elapsed=0:00:16.98    frame= 1838 fps=105 q=23.0 size=   12288KiB time=00:01:13.68 bitrate=1366.2kbits/s speed=4.21x elapsed=0:00:17.48    frame= 1886 fps=105 q=20.0 size=   12544KiB time=00:01:15.60 bitrate=1359.3kbits/s speed= 4.2x elapsed=0:00:17.99    frame= 1959 fps=106 q=23.0 size=   12800KiB time=00:01:18.56 bitrate=1334.8kbits/s speed=4.25x elapsed=0:00:18.49    frame= 2036 fps=107 q=22.0 size=   13056KiB time=00:01:21.64 bitrate=1310.1kbits/s speed= 4.3x elapsed=0:00:18.99    frame= 2094 fps=107 q=23.0 size=   13568KiB time=00:01:24.00 bitrate=1323.2kbits/s speed=4.31x elapsed=0:00:19.49    frame= 2142 fps=107 q=23.0 size=   13824KiB time=00:01:25.92 bitrate=1318.0kbits/s speed= 4.3x elapsed=0:00:20.00    frame= 2190 fps=107 q=20.0 size=   14336KiB time=00:01:27.84 bitrate=1337.0kbits/s speed=4.27x elapsed=0:00:20.55    frame= 2239 fps=106 q=23.0 size=   14592KiB time=00:01:29.80 bitrate=1331.2kbits/s speed=4.27x elapsed=0:00:21.05    frame= 2295 fps=106 q=23.0 size=   14848KiB time=00:01:32.04 bitrate=1321.5kbits/s speed=4.27x elapsed=0:00:21.55    frame= 2345 fps=106 q=23.0 size=   15104KiB time=00:01:34.04 bitrate=1315.7kbits/s speed=4.26x elapsed=0:00:22.05    frame= 2404 fps=107 q=23.0 size=   15360KiB time=00:01:36.44 bitrate=1304.7kbits/s speed=4.27x elapsed=0:00:22.56    frame= 2466 fps=107 q=23.0 size=   15616KiB time=00:01:38.92 bitrate=1293.2kbits/s speed=4.29x elapsed=0:00:23.06    frame= 2531 fps=107 q=23.0 size=   15872KiB time=00:01:41.56 bitrate=1280.3kbits/s speed=4.31x elapsed=0:00:23.56    frame= 2601 fps=108 q=23.0 size=   16384KiB time=00:01:44.36 bitrate=1286.1kbits/s speed=4.34x elapsed=0:00:24.06    frame= 2662 fps=108 q=23.0 size=   16896KiB time=00:01:46.84 bitrate=1295.5kbits/s speed=4.35x elapsed=0:00:24.56    frame= 2700 fps=108 q=23.0 size=   17152KiB time=00:01:48.36 bitrate=1296.7kbits/s speed=4.32x elapsed=0:00:25.06    frame= 2767 fps=108 q=23.0 size=   17664KiB time=00:01:51.04 bitrate=1303.2kbits/s speed=4.34x elapsed=0:00:25.57    frame= 2831 fps=109 q=23.0 size=   17920KiB time=00:01:53.60 bitrate=1292.3kbits/s speed=4.36x elapsed=0:00:26.07    frame= 2897 fps=109 q=23.0 size=   18176KiB time=00:01:56.24 bitrate=1281.0kbits/s speed=4.37x elapsed=0:00:26.57    frame= 2962 fps=109 q=23.0 size=   18432KiB time=00:01:58.84 bitrate=1270.6kbits/s speed=4.39x elapsed=0:00:27.08    frame= 3025 fps=110 q=23.0 size=   18688KiB time=00:02:01.36 bitrate=1261.5kbits/s speed= 4.4x elapsed=0:00:27.58    frame= 3090 fps=110 q=23.0 size=   19200KiB time=00:02:03.96 bitrate=1268.9kbits/s speed=4.41x elapsed=0:00:28.08    frame= 3159 fps=110 q=23.0 size=   19712KiB time=00:02:06.72 bitrate=1274.3kbits/s speed=4.43x elapsed=0:00:28.59    frame= 3212 fps=110 q=23.0 size=   20224KiB time=00:02:08.84 bitrate=1285.9kbits/s speed=4.43x elapsed=0:00:29.09    frame= 3279 fps=111 q=23.0 size=   20480KiB time=00:02:11.52 bitrate=1275.6kbits/s speed=4.44x elapsed=0:00:29.59    frame= 3347 fps=111 q=23.0 size=   20736KiB time=00:02:14.24 bitrate=1265.4kbits/s speed=4.46x elapsed=0:00:30.09    frame= 3406 fps=111 q=23.0 size=   21248KiB time=00:02:16.64 bitrate=1273.9kbits/s speed=4.47x elapsed=0:00:30.59    frame= 3471 fps=112 q=23.0 size=   21760KiB time=00:02:19.24 bitrate=1280.2kbits/s speed=4.48x elapsed=0:00:31.10    frame= 3531 fps=112 q=23.0 size=   22016KiB time=00:02:21.68 bitrate=1273.0kbits/s speed=4.48x elapsed=0:00:31.60    frame= 3608 fps=112 q=23.0 size=   22272KiB time=00:02:24.76 bitrate=1260.4kbits/s speed=4.51x elapsed=0:00:32.10    frame= 3677 fps=113 q=23.0 size=   22528KiB time=00:02:27.52 bitrate=1251.0kbits/s speed=4.52x elapsed=0:00:32.61    frame= 3740 fps=113 q=23.0 size=   22784KiB time=00:02:30.04 bitrate=1244.0kbits/s speed=4.53x elapsed=0:00:33.11    frame= 3809 fps=113 q=23.0 size=   23296KiB time=00:02:32.84 bitrate=1248.6kbits/s speed=4.55x elapsed=0:00:33.61    frame= 3876 fps=114 q=23.0 size=   23808KiB time=00:02:35.52 bitrate=1254.1kbits/s speed=4.56x elapsed=0:00:34.11    frame= 3942 fps=114 q=23.0 size=   24064KiB time=00:02:38.16 bitrate=1246.4kbits/s speed=4.57x elapsed=0:00:34.61    frame= 4021 fps=114 q=23.0 size=   24576KiB time=00:02:41.32 bitrate=1248.0kbits/s speed=4.59x elapsed=0:00:35.12    frame= 4082 fps=115 q=23.0 size=   24832KiB time=00:02:43.76 bitrate=1242.2kbits/s speed= 4.6x elapsed=0:00:35.62    frame= 4133 fps=114 q=23.0 size=   25088KiB time=00:02:45.80 bitrate=1239.6kbits/s speed=4.59x elapsed=0:00:36.12    frame= 4192 fps=114 q=23.0 size=   25600KiB time=00:02:48.20 bitrate=1246.8kbits/s speed=4.59x elapsed=0:00:36.62    frame= 4243 fps=114 q=23.0 size=   26112KiB time=00:02:50.24 bitrate=1256.5kbits/s speed=4.58x elapsed=0:00:37.13    frame= 4307 fps=114 q=23.0 size=   26624KiB time=00:02:52.80 bitrate=1262.2kbits/s speed=4.59x elapsed=0:00:37.63    frame= 4371 fps=115 q=23.0 size=   27136KiB time=00:02:55.36 bitrate=1267.7kbits/s speed= 4.6x elapsed=0:00:38.14    frame= 4431 fps=115 q=23.0 size=   27392KiB time=00:02:57.76 bitrate=1262.4kbits/s speed= 4.6x elapsed=0:00:38.64    frame= 4494 fps=115 q=23.0 size=   28160KiB time=00:03:00.28 bitrate=1279.6kbits/s speed= 4.6x elapsed=0:00:39.14    frame= 4560 fps=115 q=23.0 size=   28672KiB time=00:03:02.92 bitrate=1284.1kbits/s speed=4.61x elapsed=0:00:39.65    frame= 4662 fps=116 q=23.0 size=   28672KiB time=N/A bitrate=N/A speed=N/A elapsed=0:00:40.15    [out#0/mp4 @ 0x7930698c0] video:24908KiB audio:4056KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 0.399246%
+frame= 4702 fps=117 q=-1.0 Lsize=   29080KiB time=00:03:08.60 bitrate=1263.1kbits/s speed=4.69x elapsed=0:00:40.24    
+[libx264 @ 0x795f21500] frame I:33    Avg QP:11.83  size:120280
+[libx264 @ 0x795f21500] frame P:1180  Avg QP:15.25  size: 11937
+[libx264 @ 0x795f21500] frame B:3489  Avg QP:19.94  size:  2135
+[libx264 @ 0x795f21500] consecutive B-frames:  0.9%  0.4%  0.6% 98.2%
+[libx264 @ 0x795f21500] mb I  I16..4: 11.1% 65.4% 23.5%
+[libx264 @ 0x795f21500] mb P  I16..4:  0.1%  0.1%  0.0%  P16..4: 43.6% 16.1% 10.3%  0.0%  0.0%    skip:30.0%
+[libx264 @ 0x795f21500] mb B  I16..4:  0.0%  0.0%  0.0%  B16..8: 44.1%  1.0%  0.1%  direct: 0.1%  skip:54.7%  L0:52.3% L1:44.7% BI: 3.1%
+[libx264 @ 0x795f21500] 8x8 transform intra:64.6% inter:85.9%
+[libx264 @ 0x795f21500] coded y,uvDC,uvAC intra: 78.7% 80.6% 74.3% inter: 7.7% 7.9% 1.9%
+[libx264 @ 0x795f21500] i16 v,h,dc,p: 38% 12%  5% 45%
+[libx264 @ 0x795f21500] i8 v,h,dc,ddl,ddr,vr,hd,vl,hu: 24% 17% 22%  5%  6%  6%  6%  6%  8%
+[libx264 @ 0x795f21500] i4 v,h,dc,ddl,ddr,vr,hd,vl,hu: 22% 18% 13%  6% 11%  8%  9%  6%  7%
+[libx264 @ 0x795f21500] i8c dc,h,v,p: 44% 21% 21% 14%
+[libx264 @ 0x795f21500] Weighted P-Frames: Y:0.0% UV:0.0%
+[libx264 @ 0x795f21500] ref P L0: 51.1%  4.2% 21.3% 23.4%
+[libx264 @ 0x795f21500] ref B L0: 69.4% 23.6%  7.0%
+[libx264 @ 0x795f21500] ref B L1: 82.7% 17.3%
+[libx264 @ 0x795f21500] kb/s:1081.42
+[aac @ 0x795f21c00] Qavg: 65487.031
