@@ -521,33 +521,18 @@ def generate_music(args):
 
 
 if __name__ == "__main__":
+    from vidlib import assets
     parser = argparse.ArgumentParser(description="Generate Metro Assets")
-    parser.add_argument("--model", type=str, default=DEFAULT_MODEL, help="Model ID")
-    parser.add_argument("--flux2", type=str, help="Path to FLUX.2 model directory")
-    parser.add_argument(
-        "--steps", type=int, default=DEFAULT_STEPS, help="Inference steps"
-    )
-    parser.add_argument(
-        "--guidance", type=float, default=DEFAULT_GUIDANCE, help="Guidance scale"
-    )
-    parser.add_argument(
-        "--quant",
-        type=str,
-        default=DEFAULT_QUANT,
-        choices=["none", "4bit", "8bit"],
-        help="Quantization type",
-    )
-    parser.add_argument("--offload", action="store_true", help="Enable CPU offload")
-    parser.add_argument(
-        "--scalenorm", action="store_true", help="Use ScaleNorm improvement"
-    )
-
-    parser.add_argument(
-        "--voice_preset", type=str, default="v2/en_speaker_6", help="Bark voice preset"
-    )
-
+    parser.add_argument("--model", type=str)
+    parser.add_argument("--flux2", type=str)
+    parser.add_argument("--steps", type=int)
+    parser.add_argument("--guidance", type=float)
+    parser.add_argument("--quant", type=str, choices=["none", "4bit", "8bit"])
+    parser.add_argument("--offload", action="store_true")
+    parser.add_argument("--scalenorm", action="store_true")
     args = parser.parse_args()
-    generate_images(args)
-    generate_sfx(args)
-    generate_voiceover(args)
-    generate_music(args)
+
+    assets.metro_generate_images(args)
+    assets.metro_generate_sfx(args)
+    assets.metro_generate_voiceover(args)
+    assets.metro_generate_music(args)
