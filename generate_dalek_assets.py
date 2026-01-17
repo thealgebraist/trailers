@@ -168,16 +168,16 @@ def generate_music(args):
     torch.cuda.empty_cache()
 
 if __name__ == "__main__":
+    from vidlib import assets
     parser = argparse.ArgumentParser(description="Generate Dalek Assets")
-        from vidlib import assets
-        parser.add_argument("--model", type=str)
-        parser.add_argument("--flux2", type=str)
-        parser.add_argument("--steps", type=int)
-        parser.add_argument("--guidance", type=float)
-        parser.add_argument("--quant", type=str, choices=["none", "4bit", "8bit"])
-        parser.add_argument("--offload", action="store_true")
-        parser.add_argument("--scalenorm", action="store_true")
-        args = parser.parse_args()
+    parser.add_argument("--model", type=str)
+    parser.add_argument("--flux2", type=str)
+    parser.add_argument("--steps", type=int)
+    parser.add_argument("--guidance", type=float)
+    parser.add_argument("--quant", type=str, choices=["none", "4bit", "8bit"])
+    parser.add_argument("--offload", action="store_true")
+    parser.add_argument("--scalenorm", action="store_true")
+    args = parser.parse_args()
 
         assets.dalek_generate_images(args)
         assets.dalek_generate_sfx(args)
