@@ -1,5 +1,5 @@
 # vidlib.utils: Utility classes and functions
-from ..utils import *
+from utils import *
 
 __all__ = [
     'ScaleNorm',
